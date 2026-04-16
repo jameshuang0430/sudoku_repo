@@ -167,6 +167,75 @@ class AITests(unittest.TestCase):
         self.assertGreaterEqual(decode_iteration_counts[0], 2)
         self.assertGreater(postprocess_change_counts[0], 0)
 
+    def test_decode_completed_boards_iterative_max_fills_per_round_limits_progress(self) -> None:
+        dataset = SudokuDataset(size=1, blanks=10, seed=7)
+        sample = dataset[0]
+        digits = sample["digits"].unsqueeze(0)
+        givens = sample["givens"].unsqueeze(0)
+        targets = sample["targets"]
+        blank_count = int((sample["digits"] == 0).sum().item())
+
+        class StaticOracleModel(torch.nn.Module):
+            def forward(self, digits: torch.Tensor, givens: torch.Tensor) -> torch.Tensor:
+                logits = torch.full((digits.size(0), 81, 9), -5.0, dtype=torch.float32, device=digits.device)
+                for batch_index in range(digits.size(0)):
+                    for index, target_value in enumerate(targets.tolist()):
+                        logits[batch_index, index, target_value] = 5.0
+                return logits
+
+        completed, postprocess_change_counts, decode_iteration_counts = decode_completed_boards(
+            StaticOracleModel(),
+            digits,
+            givens,
+            torch.device("cpu"),
+            mode="iterative",
+            iterative_max_fills_per_round=1,
+        )
+
+        self.assertEqual(completed[0].tolist(), (targets + 1).tolist())
+        self.assertEqual(postprocess_change_counts, [0])
+        self.assertEqual(decode_iteration_counts, [blank_count])
+
+    def test_decode_completed_boards_iterative_rechecks_consistency_within_round(self) -> None:
+        solved_digits = torch.tensor(
+            [[1, 2, 3, 4, 5, 6, 7, 8, 9] + [4, 5, 6, 7, 8, 9, 1, 2, 3] * 8],
+            dtype=torch.long,
+        )
+        digits = solved_digits.clone()
+        digits[0, 1] = 0
+        digits[0, 2] = 0
+        givens = (digits != 0).to(dtype=torch.float32)
+        initial_logits = torch.full((1, 81, 9), -5.0, dtype=torch.float32)
+        initial_logits[0, 1, 1] = 5.0
+        initial_logits[0, 2, 1] = 5.0
+        initial_logits[0, 2, 2] = 4.0
+
+        class TwoStageConflictModel(torch.nn.Module):
+            def forward(self, digits: torch.Tensor, givens: torch.Tensor) -> torch.Tensor:
+                logits = torch.full((digits.size(0), 81, 9), -5.0, dtype=torch.float32, device=digits.device)
+                logits[:, 1, 1] = 5.0
+                logits[:, 2, 1] = 5.0
+                logits[:, 2, 2] = 4.0
+                for batch_index in range(digits.size(0)):
+                    if digits[batch_index, 1].item() == 2 and digits[batch_index, 2].item() == 0:
+                        logits[batch_index, 2, 1] = 1.0
+                        logits[batch_index, 2, 2] = 6.0
+                return logits
+
+        completed, _postprocess_change_counts, decode_iteration_counts = decode_completed_boards(
+            TwoStageConflictModel(),
+            digits,
+            givens,
+            torch.device("cpu"),
+            mode="iterative",
+            initial_logits=initial_logits,
+            iterative_max_fills_per_round=2,
+        )
+
+        self.assertEqual(completed[0, 1].item(), 2)
+        self.assertEqual(completed[0, 2].item(), 3)
+        self.assertGreaterEqual(decode_iteration_counts[0], 2)
+
     def test_constraint_consistency_penalty_is_zero_for_valid_completed_board(self) -> None:
         dataset = SudokuDataset(size=1, blanks=10, seed=7)
         sample = dataset[0]
@@ -441,6 +510,10 @@ class AITests(unittest.TestCase):
                     "2",
                     "--decode-mode",
                     "iterative",
+                    "--iterative-threshold",
+                    "0.8",
+                    "--iterative-max-fills-per-round",
+                    "2",
                     "--report",
                     str(report_path),
                 ]
@@ -454,6 +527,8 @@ class AITests(unittest.TestCase):
         self.assertIn("mean_decode_iteration_count", report["metrics"])
         self.assertEqual(report["evaluation_config"]["dataset"], str(dataset_path))
         self.assertEqual(report["evaluation_config"]["decode_mode"], "iterative")
+        self.assertEqual(report["evaluation_config"]["iterative_threshold"], 0.8)
+        self.assertEqual(report["evaluation_config"]["iterative_max_fills_per_round"], 2)
 
     def test_plot_main_supports_training_report(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -521,3 +596,6 @@ class AITests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+

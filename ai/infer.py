@@ -9,7 +9,7 @@ import torch
 
 from .checkpoint import load_model_from_checkpoint
 from .dataset import build_sample, flat_to_board, parse_board_text
-from .decode import compose_completed_boards, decode_completed_boards
+from .decode import compose_completed_boards, decode_completed_boards, ITERATIVE_CONFIDENCE_THRESHOLD
 from .eval import summarize_board_violations
 
 
@@ -21,8 +21,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     source_group.add_argument("--file", type=Path, help="Path to a text file containing the puzzle.")
     source_group.add_argument("--stdin", action="store_true", help="Read a pasted puzzle from standard input.")
     parser.add_argument("--decode-mode", choices=["argmax", "iterative", "solver_guided"], default="iterative")
+    parser.add_argument("--iterative-threshold", type=float, default=ITERATIVE_CONFIDENCE_THRESHOLD)
+    parser.add_argument("--iterative-max-fills-per-round", type=int)
     parser.add_argument("--show-raw-prediction", action="store_true")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    _validate_decode_args(parser, args)
+    return args
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -45,6 +49,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             device,
             mode=args.decode_mode,
             initial_logits=logits,
+            iterative_confidence_threshold=args.iterative_threshold,
+            iterative_max_fills_per_round=args.iterative_max_fills_per_round,
         )
 
     decoded_board = flat_to_board(decoded_boards[0].tolist())
@@ -56,11 +62,14 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     print(
         "checkpoint={checkpoint} model_type={model_type} decode_mode={decode_mode} blanks={blanks} "
+        "iterative_threshold={iterative_threshold:.2f} iterative_max_fills_per_round={iterative_max_fills_per_round} "
         "postprocess_change_count={postprocess_change_count} decode_iteration_count={decode_iteration_count}".format(
             checkpoint=args.checkpoint,
             model_type=payload.get("model_type", "unknown"),
             decode_mode=args.decode_mode,
             blanks=blank_count,
+            iterative_threshold=args.iterative_threshold,
+            iterative_max_fills_per_round=args.iterative_max_fills_per_round,
             postprocess_change_count=postprocess_change_counts[0],
             decode_iteration_count=decode_iteration_counts[0],
         )
@@ -104,6 +113,13 @@ def format_board(board: list[list[int]]) -> str:
         if row_index in {2, 5}:
             lines.append("-" * 21)
     return "\n".join(lines)
+
+
+def _validate_decode_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if not 0.0 <= args.iterative_threshold <= 1.0:
+        parser.error("--iterative-threshold must be between 0.0 and 1.0.")
+    if args.iterative_max_fills_per_round is not None and args.iterative_max_fills_per_round < 1:
+        parser.error("--iterative-max-fills-per-round must be at least 1.")
 
 
 if __name__ == "__main__":

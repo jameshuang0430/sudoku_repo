@@ -481,3 +481,62 @@
 - Commit the small-weight sweep results.
 - If this direction is pursued further, the next most sensible tests are either a very small weight like `0.001` or a different constraint formulation, not simply more weights around `0.05`.
 - If the goal is fastest progress on solved-board rate, return focus to scale and decoding rather than this constraint penalty alone.
+
+## 2026-04-17 Tuned Iterative Decoding Sweep
+
+### Current Progress
+- Added iterative-policy controls to `ai.decode`, `ai.eval`, `ai.infer`, and `ai.analyze_errors`.
+- Exposed `--iterative-threshold` and `--iterative-max-fills-per-round` so decode behavior can be tuned without code edits.
+- Added tests for capped iterative progress, within-round consistency rechecking, evaluation-report config capture, and inference CLI rendering.
+- Re-ran the current best large checkpoint on the fixed large test split with stricter iterative policies.
+
+### Issues Encountered
+- The first top-k implementation selected multiple confident placements against the same stale board state, then applied them together.
+- That bug made the initial sweep numbers misleading because same-round placements could ignore conflicts between each other.
+- The repo's `unittest` layout still does not support direct `python -m unittest tests.test_ai ...` imports, so targeted runs have to keep using `discover -s tests`.
+
+### Resolution
+- Changed iterative selection to re-check consistency against a working copy of the board as each placement is tentatively accepted inside the same round.
+- Added a dedicated regression test that uses a two-stage dummy model to prove same-round consistency is rechecked before multiple blanks are locked in.
+- Re-ran the sweep after the fix and treated the earlier optimistic run as invalid.
+
+### Completed Segment
+- Iterative decoding is now tunable from the CLI instead of being hard-coded to one policy.
+- The tuned top-k iterative path dramatically outperforms the old unrestricted iterative baseline on the current large checkpoint.
+- The stricter `threshold=0.75`, `max_fills_per_round=2` policy is now the best non-solver decode path measured in this repo.
+
+### Large Checkpoint Sweep Summary
+- Baseline iterative refresh (`threshold=0.50`, unlimited fills):
+  - `blank_cell_accuracy=0.9063`
+  - `board_solved_rate=0.2969`
+  - `valid_board_rate=0.2969`
+  - `mean_mismatch_count=3.75`
+  - `mean_total_conflicts=3.50`
+  - `mean_postprocess_change_count=5.17`
+  - `mean_decode_iteration_count=4.10`
+- Tuned iterative (`threshold=0.75`, `max_fills_per_round=2`):
+  - `blank_cell_accuracy=0.9991`
+  - `board_solved_rate=0.9980`
+  - `valid_board_rate=0.9980`
+  - `mean_mismatch_count=0.04`
+  - `mean_total_conflicts=0.02`
+  - `mean_postprocess_change_count=6.21`
+  - `mean_decode_iteration_count=20.01`
+- Tuned iterative (`threshold=0.75`, `max_fills_per_round=1`):
+  - `blank_cell_accuracy=0.9983`
+  - `board_solved_rate=0.9961`
+  - `valid_board_rate=0.9961`
+  - `mean_mismatch_count=0.07`
+  - `mean_total_conflicts=0.02`
+  - `mean_postprocess_change_count=6.22`
+  - `mean_decode_iteration_count=40.00`
+
+### Interpretation
+- The current large Transformer checkpoint was already much stronger than the old unrestricted iterative policy made it look.
+- Tightening iterative decoding to only lock in a few very confident cells per round almost closes the gap to solver-guided decoding on this fixed unique-solution split, without calling the exact solver.
+- The gain is not free: the best tuned policy uses roughly five times as many refinement rounds as the old iterative baseline.
+
+### Next Steps
+- Commit this tuned-decoding segment.
+- Consider making `threshold=0.75`, `max_fills_per_round=2` the default non-solver inference preset, while still keeping the raw unrestricted iterative mode available for comparison.
+- If the next goal is latency rather than accuracy, tune for fewer decode rounds instead of only maximizing solved-board rate.

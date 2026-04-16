@@ -12,7 +12,7 @@ from solver import validate_board
 
 from .checkpoint import load_model_from_checkpoint
 from .dataset import SudokuDataset, SudokuFileDataset
-from .decode import decode_completed_boards
+from .decode import decode_completed_boards, ITERATIVE_CONFIDENCE_THRESHOLD
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -24,8 +24,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--decode-mode", choices=["argmax", "iterative", "solver_guided"], default="argmax")
+    parser.add_argument("--iterative-threshold", type=float, default=ITERATIVE_CONFIDENCE_THRESHOLD)
+    parser.add_argument("--iterative-max-fills-per-round", type=int)
     parser.add_argument("--report", type=Path)
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    _validate_decode_args(parser, args)
+    return args
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -35,11 +39,19 @@ def main(argv: Sequence[str] | None = None) -> None:
     dataset = load_evaluation_dataset(args)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
 
-    metrics = evaluate_model(model, dataloader, device, decode_mode=args.decode_mode)
+    metrics = evaluate_model(
+        model,
+        dataloader,
+        device,
+        decode_mode=args.decode_mode,
+        iterative_threshold=args.iterative_threshold,
+        iterative_max_fills_per_round=args.iterative_max_fills_per_round,
+    )
     training_config = payload.get("config", {})
     evaluation_source = str(args.dataset) if args.dataset is not None else "generated"
     print(
         "checkpoint={checkpoint} eval_source={eval_source} decode_mode={decode_mode} train_seed={train_seed} "
+        "iterative_threshold={iterative_threshold:.2f} iterative_max_fills_per_round={iterative_max_fills_per_round} "
         "blank_cell_acc={blank_cell_accuracy:.4f} board_solved_rate={board_solved_rate:.4f} "
         "valid_board_rate={valid_board_rate:.4f} mean_mismatch_count={mean_mismatch_count:.2f} "
         "mean_total_conflicts={mean_total_conflicts:.2f} mean_postprocess_change_count={mean_postprocess_change_count:.2f} "
@@ -48,6 +60,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             eval_source=evaluation_source,
             decode_mode=args.decode_mode,
             train_seed=training_config.get("seed", "unknown"),
+            iterative_threshold=args.iterative_threshold,
+            iterative_max_fills_per_round=args.iterative_max_fills_per_round,
             **metrics,
         )
     )
@@ -67,6 +81,8 @@ def main(argv: Sequence[str] | None = None) -> None:
                         "batch_size": args.batch_size,
                         "seed": args.seed,
                         "decode_mode": args.decode_mode,
+                        "iterative_threshold": args.iterative_threshold,
+                        "iterative_max_fills_per_round": args.iterative_max_fills_per_round,
                     },
                 },
                 handle,
@@ -86,6 +102,8 @@ def evaluate_model(
     dataloader: DataLoader[Any],
     device: torch.device,
     decode_mode: str = "argmax",
+    iterative_threshold: float = ITERATIVE_CONFIDENCE_THRESHOLD,
+    iterative_max_fills_per_round: int | None = None,
 ) -> dict[str, float]:
     model.eval()
     total_blank_cells = 0
@@ -115,6 +133,8 @@ def evaluate_model(
                 device,
                 mode=decode_mode,
                 initial_logits=logits,
+                iterative_confidence_threshold=iterative_threshold,
+                iterative_max_fills_per_round=iterative_max_fills_per_round,
             )
             blank_mask = digits.cpu() == 0
             target_boards = targets.cpu() + 1
@@ -165,6 +185,13 @@ def evaluate_model(
         "mean_postprocess_change_count": total_postprocess_change_count / total_boards if total_boards else 0.0,
         "mean_decode_iteration_count": total_decode_iteration_count / total_boards if total_boards else 0.0,
     }
+
+
+def _validate_decode_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if not 0.0 <= args.iterative_threshold <= 1.0:
+        parser.error("--iterative-threshold must be between 0.0 and 1.0.")
+    if args.iterative_max_fills_per_round is not None and args.iterative_max_fills_per_round < 1:
+        parser.error("--iterative-max-fills-per-round must be at least 1.")
 
 
 def summarize_board_violations(flat_board: list[int]) -> dict[str, int | bool]:

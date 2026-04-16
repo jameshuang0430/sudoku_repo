@@ -10,6 +10,7 @@ from .dataset import flat_to_board, flatten_board
 
 DecodeMode = Literal["argmax", "iterative", "solver_guided"]
 ITERATIVE_CONFIDENCE_THRESHOLD = 0.5
+ITERATIVE_MAX_FILLS_PER_ROUND: int | None = None
 
 
 def compose_completed_boards(digits: torch.Tensor, predictions: torch.Tensor) -> torch.Tensor:
@@ -23,6 +24,8 @@ def decode_completed_boards(
     device: torch.device,
     mode: DecodeMode = "argmax",
     initial_logits: torch.Tensor | None = None,
+    iterative_confidence_threshold: float = ITERATIVE_CONFIDENCE_THRESHOLD,
+    iterative_max_fills_per_round: int | None = ITERATIVE_MAX_FILLS_PER_ROUND,
 ) -> tuple[torch.Tensor, list[int], list[int]]:
     if initial_logits is None:
         initial_logits = model(digits.to(device), givens.to(device))
@@ -50,6 +53,8 @@ def decode_completed_boards(
                 givens=original_givens,
                 device=device,
                 initial_logits=sample_logits,
+                confidence_threshold=iterative_confidence_threshold,
+                max_fills_per_round=iterative_max_fills_per_round,
             )
             blank_mask = original_digits == 0
             change_count = int(((completed_board != (raw_predictions + 1)) & blank_mask).sum().item())
@@ -87,7 +92,14 @@ def _decode_board_iteratively(
     givens: torch.Tensor,
     device: torch.device,
     initial_logits: torch.Tensor,
+    confidence_threshold: float,
+    max_fills_per_round: int | None,
 ) -> tuple[torch.Tensor, int]:
+    if not 0.0 <= confidence_threshold <= 1.0:
+        raise ValueError("confidence_threshold must be between 0.0 and 1.0.")
+    if max_fills_per_round is not None and max_fills_per_round < 1:
+        raise ValueError("max_fills_per_round must be at least 1 when provided.")
+
     current_values = digits.tolist()
     current_givens = givens.tolist()
     next_logits = initial_logits.detach().cpu()
@@ -104,15 +116,22 @@ def _decode_board_iteratively(
 
         probabilities = torch.softmax(step_logits, dim=-1)
         ranked_predictions = _rank_blank_predictions(current_values, probabilities)
-        placed_any = False
-
+        candidate_values = current_values.copy()
+        confident_predictions: list[tuple[float, int, int]] = []
         for confidence, index, predicted_value in ranked_predictions:
-            if confidence < ITERATIVE_CONFIDENCE_THRESHOLD:
+            if confidence < confidence_threshold:
                 continue
-            if _is_value_consistent(current_values, index, predicted_value):
-                current_values[index] = predicted_value
-                current_givens[index] = 1.0
-                placed_any = True
+            if not _is_value_consistent(candidate_values, index, predicted_value):
+                continue
+            confident_predictions.append((confidence, index, predicted_value))
+            candidate_values[index] = predicted_value
+            if max_fills_per_round is not None and len(confident_predictions) >= max_fills_per_round:
+                break
+
+        placed_any = bool(confident_predictions)
+        for _confidence, index, predicted_value in confident_predictions:
+            current_values[index] = predicted_value
+            current_givens[index] = 1.0
 
         if not placed_any:
             fallback = next(
@@ -172,3 +191,4 @@ def _is_value_consistent(current_values: list[int], index: int, candidate: int) 
                 return False
 
     return True
+
