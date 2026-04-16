@@ -11,18 +11,54 @@ class DecodePreset:
     decode_mode: DecodeMode
     iterative_threshold: float = ITERATIVE_CONFIDENCE_THRESHOLD
     iterative_max_fills_per_round: int | None = None
+    summary: str = ""
 
 
 DECODE_PRESETS: dict[str, DecodePreset] = {
-    "argmax": DecodePreset(name="argmax", decode_mode="argmax"),
-    "iterative": DecodePreset(name="iterative", decode_mode="iterative"),
+    "research_raw": DecodePreset(
+        name="research_raw",
+        decode_mode="argmax",
+        summary="Raw model output with no repair.",
+    ),
+    "research_iterative": DecodePreset(
+        name="research_iterative",
+        decode_mode="iterative",
+        summary="Unrestricted iterative refinement for research comparison.",
+    ),
+    "production_pure": DecodePreset(
+        name="production_pure",
+        decode_mode="iterative",
+        iterative_threshold=0.75,
+        iterative_max_fills_per_round=2,
+        summary="Strict non-solver iterative decoding tuned for accuracy.",
+    ),
+    "production_fast": DecodePreset(
+        name="production_fast",
+        decode_mode="solver_guided",
+        summary="Solver-guided production path optimized for exact repair and lower CPU latency.",
+    ),
+    "argmax": DecodePreset(
+        name="argmax",
+        decode_mode="argmax",
+        summary="Back-compat alias for research_raw.",
+    ),
+    "iterative": DecodePreset(
+        name="iterative",
+        decode_mode="iterative",
+        summary="Back-compat alias for research_iterative.",
+    ),
     "iterative_strict": DecodePreset(
         name="iterative_strict",
         decode_mode="iterative",
         iterative_threshold=0.75,
         iterative_max_fills_per_round=2,
+        summary="Back-compat alias for production_pure.",
     ),
-    "solver_guided": DecodePreset(name="solver_guided", decode_mode="solver_guided"),
+    "solver_guided": DecodePreset(
+        name="solver_guided",
+        decode_mode="solver_guided",
+        summary="Back-compat alias for production_fast.",
+    ),
 }
 
 

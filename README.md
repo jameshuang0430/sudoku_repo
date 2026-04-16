@@ -142,10 +142,10 @@ Evaluate the same checkpoint with iterative decoding:
 python -m ai.eval --checkpoint ai\checkpoints\transformer_large.pt --dataset data\manifests_large\test.jsonl --batch-size 32 --decode-mode iterative --report ai\reports\transformer_large_iterative_test_metrics.json
 ```
 
-Evaluate with the named strict iterative preset:
+Evaluate with the product-grade pure-model preset:
 
 ```powershell
-python -m ai.eval --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_large\test.jsonl --batch-size 32 --decode-preset iterative_strict --report ai\reports\transformer_large_iterative_tuned_test_metrics.json
+python -m ai.eval --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_large\test.jsonl --batch-size 32 --decode-preset production_pure --report ai\reports\transformer_large_iterative_tuned_test_metrics.json
 ```
 
 Evaluate the same checkpoint with solver-guided post-processing:
@@ -160,10 +160,10 @@ Run single-puzzle inference from a file:
 python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt --decode-mode iterative
 ```
 
-Run single-puzzle inference with the named strict iterative preset:
+Run single-puzzle inference with the product-grade pure-model preset:
 
 ```powershell
-python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt --decode-preset iterative_strict
+python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt --decode-preset production_pure
 ```
 
 Run single-puzzle inference from an inline puzzle string:
@@ -184,7 +184,7 @@ Decode-mode interpretation:
 - `argmax`: raw model output with no repair.
 - `iterative`: re-runs the model while filling confident cells round by round, without using the exact solver.
 - `solver_guided`: uses the exact solver as a post-processor, so treat it as an upper-bound reference rather than raw model quality.
-- `--decode-preset iterative_strict`: expands to `decode_mode=iterative`, `iterative_threshold=0.75`, and `iterative_max_fills_per_round=2`.
+- `--decode-preset production_pure`: expands to `decode_mode=iterative`, `iterative_threshold=0.75`, and `iterative_max_fills_per_round=2`.
 - `--iterative-threshold`: minimum softmax confidence required before iterative decoding fills a blank without falling back.
 - `--iterative-max-fills-per-round`: optionally limits how many confident blanks iterative decoding may lock in per refinement round.
 
@@ -238,7 +238,7 @@ python -m ai.analyze_errors --checkpoint ai/checkpoints/transformer_large.pt --d
 Benchmark latency across decode presets:
 
 ```powershell
-python -m ai.benchmark --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --batch-sizes 1 32 --decode-presets argmax iterative iterative_strict solver_guided --max-samples 128 --repeats 3 --report ai\reports\transformer_large_generalization_latency.json
+python -m ai.benchmark --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --batch-sizes 1 32 --decode-presets research_raw research_iterative production_pure production_fast --max-samples 128 --repeats 3 --report ai\reports\transformer_large_generalization_latency.json
 ```
 
 `ai.benchmark` reports mean total time, mean per-board time, mean per-batch time, and throughput for each decode preset / batch-size pair.
@@ -258,6 +258,7 @@ A good order for this repo is:
 9. Try `--constraint-loss-weight` if you want to bias training toward lower structural conflict.
 10. Render the training and evaluation reports with `ai.plot_results`.
 11. Use `analyze_errors.py` to inspect failure modes.
+
 
 
 

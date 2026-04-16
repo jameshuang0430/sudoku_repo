@@ -44,7 +44,7 @@ class BenchmarkTests(unittest.TestCase):
                     "2",
                     "--decode-presets",
                     "argmax",
-                    "iterative_strict",
+                    "production_pure",
                     "--max-samples",
                     "4",
                     "--warmup-batches",
@@ -59,7 +59,7 @@ class BenchmarkTests(unittest.TestCase):
             report = json.loads(report_path.read_text(encoding="utf-8"))
 
         self.assertEqual(report["benchmark_config"]["batch_sizes"], [1, 2])
-        self.assertEqual(report["benchmark_config"]["decode_presets"], ["argmax", "iterative_strict"])
+        self.assertEqual(report["benchmark_config"]["decode_presets"], ["argmax", "production_pure"])
         self.assertEqual(len(report["results"]), 4)
         self.assertTrue(all(result["sample_count"] == 4 for result in report["results"]))
         self.assertTrue(all(result["throughput_boards_per_second"] >= 0.0 for result in report["results"]))
@@ -67,3 +67,4 @@ class BenchmarkTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

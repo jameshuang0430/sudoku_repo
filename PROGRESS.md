@@ -685,7 +685,7 @@
 - Added regression coverage for preset expansion in both evaluation and single-puzzle inference.
 
 ### Issues Encountered
-- After the latency segment, `iterative_strict` only existed as a benchmark preset, so the production-facing CLIs still required manual `threshold` and `max_fills_per_round` arguments.
+- After the latency segment, The first packaged preset revision still centered the old `iterative_strict` name, which was accurate technically but too research-flavored for the product-facing workflow.
 - Leaving presets defined in one CLI but not the others would make future tuning fragile, because preset names and actual decode behavior could drift apart.
 
 ### Resolution
@@ -694,7 +694,7 @@
 - Updated tests so the preset path is verified end to end instead of assuming the benchmark-only path was enough.
 
 ### Completed Segment
-- You can now run the winning strict iterative path by name instead of repeating the same parameter tuple every time.
+- You can now run the winning strict iterative path by the product-facing name `production_pure` instead of repeating the same parameter tuple every time.
 - The benchmark and user-facing CLIs now share one preset registry, so the decode configuration is traceable and consistent.
 - Reports and terminal output now include `decode_preset` when one is used, which makes later experiment review much cleaner.
 
@@ -704,13 +704,14 @@
 
 ### Usage Summary
 - Evaluation:
-  - `python -m ai.eval --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --decode-preset iterative_strict --report ai\reports\strict_eval.json`
+  - `python -m ai.eval --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --decode-preset production_pure --report ai\reports\strict_eval.json`
 - Single-puzzle inference:
-  - `python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt --decode-preset iterative_strict`
+  - `python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt --decode-preset production_pure`
 - Error analysis:
-  - `python -m ai.analyze_errors --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --decode-preset iterative_strict --limit 2`
+  - `python -m ai.analyze_errors --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --decode-preset production_pure --limit 2`
 
 ### Next Steps
 - Commit this decode-preset packaging segment.
-- If the product path is solver-based, add a corresponding named preset for the preferred solver-guided production mode.
+- The preset registry now includes both `production_pure` and `production_fast`, while keeping the older research-oriented names as aliases for back-compat.
 - If the next priority is UX, add a short summary line in CLI output that marks whether the selected preset is accuracy-oriented or latency-oriented.
+

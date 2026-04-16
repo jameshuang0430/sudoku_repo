@@ -509,7 +509,7 @@ class AITests(unittest.TestCase):
                     "--batch-size",
                     "2",
                     "--decode-preset",
-                    "iterative_strict",
+                    "production_pure",
                     "--report",
                     str(report_path),
                 ]
@@ -522,7 +522,7 @@ class AITests(unittest.TestCase):
         self.assertIn("mean_postprocess_change_count", report["metrics"])
         self.assertIn("mean_decode_iteration_count", report["metrics"])
         self.assertEqual(report["evaluation_config"]["dataset"], str(dataset_path))
-        self.assertEqual(report["evaluation_config"]["decode_preset"], "iterative_strict")
+        self.assertEqual(report["evaluation_config"]["decode_preset"], "production_pure")
         self.assertEqual(report["evaluation_config"]["decode_mode"], "iterative")
         self.assertEqual(report["evaluation_config"]["iterative_threshold"], 0.75)
         self.assertEqual(report["evaluation_config"]["iterative_max_fills_per_round"], 2)
@@ -593,6 +593,7 @@ class AITests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 
