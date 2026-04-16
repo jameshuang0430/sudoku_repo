@@ -245,3 +245,81 @@
 - Commit this training/evaluation segment.
 - Prefer evaluating `ai\checkpoints\transformer_current.best.pt` rather than the final checkpoint.
 - If the next run should aim at much higher solved-board rate, increase training scale or move to constraint-aware training.
+
+## 2026-04-17 Larger-Scale Transformer Run
+
+### Current Progress
+- Reused the existing larger fixed split in `data\manifests_large` to run a new formal Transformer experiment with the current training stack.
+- Saved the final checkpoint, best checkpoint, training metrics report, and both raw/iterative test reports.
+- Compared the new large-scale run against the older `transformer_large` baseline on the same split.
+
+### Issues Encountered
+- Early stopping still did not trigger on this run because validation metrics kept improving through epoch 20.
+- Even at this larger scale, raw `argmax` decoding is still far behind iterative decoding on solved-board rate.
+
+### Resolution
+- Kept the full 20-epoch run because validation `board_solved_rate` and conflict metrics were still improving late in training.
+- Preserved both raw `argmax` and `iterative` test reports so the inference gap remains explicit.
+- Treated this run as the new large-scale baseline for the current training stack, since it uses the newer best-checkpoint and metadata flow.
+
+### Completed Segment
+- A larger-scale Transformer experiment has now been run end to end with the current training pipeline.
+- The repo now has an updated large-split baseline that is directly comparable to the earlier large experiment.
+
+### Training Run Summary
+- Command:
+  - `python -m ai.train --dataset data\manifests_large\train.jsonl --val-dataset data\manifests_large\val.jsonl --model transformer --transformer-embed-dim 128 --transformer-num-heads 8 --transformer-depth 4 --transformer-ff-dim 512 --epochs 20 --batch-size 32 --early-stopping-patience 5 --checkpoint ai\checkpoints\transformer_large_current.pt --best-checkpoint ai\checkpoints\transformer_large_current.best.pt --metrics-output ai\reports\transformer_large_current_metrics.json`
+- Resolved scale:
+  - `train=4096`
+  - `val=512`
+  - `test=512`
+- Best epoch: `20`
+- Validation metrics at best epoch:
+  - `blank_cell_accuracy=0.8492`
+  - `board_solved_rate=0.0117`
+  - `valid_board_rate=0.0117`
+  - `mean_total_conflicts=10.98`
+
+### Test Evaluation Summary
+- Raw argmax:
+  - `blank_cell_accuracy=0.8448`
+  - `board_solved_rate=0.0059`
+  - `valid_board_rate=0.0059`
+  - `mean_mismatch_count=6.21`
+  - `mean_total_conflicts=11.68`
+- Iterative decoding:
+  - `blank_cell_accuracy=0.9063`
+  - `board_solved_rate=0.2969`
+  - `valid_board_rate=0.2969`
+  - `mean_mismatch_count=3.75`
+  - `mean_total_conflicts=3.50`
+  - `mean_postprocess_change_count=5.17`
+  - `mean_decode_iteration_count=4.10`
+
+### Comparison To Earlier Large Baseline
+- Earlier large raw argmax test:
+  - `blank_cell_accuracy=0.8067`
+  - `board_solved_rate=0.0000`
+  - `mean_total_conflicts=14.94`
+- Current large raw argmax test:
+  - `blank_cell_accuracy=0.8448`
+  - `board_solved_rate=0.0059`
+  - `mean_total_conflicts=11.68`
+- Earlier large iterative test:
+  - `blank_cell_accuracy=0.8866`
+  - `board_solved_rate=0.2480`
+  - `mean_total_conflicts=3.66`
+- Current large iterative test:
+  - `blank_cell_accuracy=0.9063`
+  - `board_solved_rate=0.2969`
+  - `mean_total_conflicts=3.50`
+
+### Interpretation
+- This larger-scale run is a real improvement over both the recent small-split run and the earlier large-split baseline.
+- Raw model quality is finally strong enough to produce a non-zero solved-board rate without post-processing on the large test split.
+- Iterative decoding remains the most effective non-solver inference path so far, and it is now close to solving 3 out of 10 boards on this split.
+
+### Next Steps
+- Commit this larger-scale experiment segment.
+- Use `ai\checkpoints\transformer_large_current.best.pt` as the default checkpoint for further comparison work.
+- If the next goal is to push solved-board rate substantially higher, move next to either more scale again or constraint-aware training.
