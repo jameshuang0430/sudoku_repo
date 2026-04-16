@@ -540,3 +540,72 @@
 - Commit this tuned-decoding segment.
 - Consider making `threshold=0.75`, `max_fills_per_round=2` the default non-solver inference preset, while still keeping the raw unrestricted iterative mode available for comparison.
 - If the next goal is latency rather than accuracy, tune for fewer decode rounds instead of only maximizing solved-board rate.
+
+## 2026-04-17 Generalization Validation On Fresh Large Split
+
+### Current Progress
+- Exported a fresh large `train/val/test` split with a new seed instead of reusing the earlier `data\manifests_large` manifests.
+- Evaluated the current best checkpoint `ai\checkpoints\transformer_large_current.best.pt` on the new generalization test split with both raw `argmax` and the tuned iterative decode preset.
+- Rendered fresh PNG reports for the new raw and tuned-iterative evaluations.
+
+### Issues Encountered
+- The new large split generation takes noticeable time because it writes 5,120 puzzle/solution file pairs plus manifests.
+- Since the generated data lives under the already-untracked `data\` tree, the split itself should remain an untracked runtime artifact rather than something committed into git.
+
+### Resolution
+- Kept the validation focused on committed JSON/PNG reports and the progress log, while leaving the generated split files as local evaluation artifacts.
+- Reused the existing best checkpoint and decode preset exactly as-is so the comparison isolates dataset freshness instead of mixing in any training or decode changes.
+
+### Completed Segment
+- The tuned iterative result now has a fresh-split generalization check, not just a score on the original fixed large test split.
+- The new-split numbers are effectively unchanged from the earlier split, which strongly suggests the tuned decode behavior is not a one-off artifact of the original large test manifest.
+
+### Fresh Large Split Setup
+- Command:
+  - `python -m solver.cli export-dataset --train-size 4096 --val-size 512 --test-size 512 --blanks 40 --seed 101 --output-dir data\dataset_generalization --manifest-dir data\manifests_generalization`
+- Fresh test manifest:
+  - `data\manifests_generalization\test.jsonl`
+
+### Generalization Evaluation Summary
+- Raw argmax on fresh split:
+  - `blank_cell_accuracy=0.8437`
+  - `board_solved_rate=0.0039`
+  - `valid_board_rate=0.0039`
+  - `mean_mismatch_count=6.25`
+  - `mean_total_conflicts=11.59`
+- Tuned iterative on fresh split (`threshold=0.75`, `max_fills_per_round=2`):
+  - `blank_cell_accuracy=0.9991`
+  - `board_solved_rate=0.9980`
+  - `valid_board_rate=0.9980`
+  - `mean_mismatch_count=0.04`
+  - `mean_total_conflicts=0.02`
+  - `mean_postprocess_change_count=6.26`
+  - `mean_decode_iteration_count=20.01`
+
+### Comparison To Earlier Large Test Split
+- Earlier raw argmax:
+  - `blank_cell_accuracy=0.8448`
+  - `board_solved_rate=0.0059`
+  - `mean_total_conflicts=11.68`
+- Fresh-split raw argmax:
+  - `blank_cell_accuracy=0.8437`
+  - `board_solved_rate=0.0039`
+  - `mean_total_conflicts=11.59`
+- Earlier tuned iterative:
+  - `blank_cell_accuracy=0.9991`
+  - `board_solved_rate=0.9980`
+  - `mean_total_conflicts=0.02`
+- Fresh-split tuned iterative:
+  - `blank_cell_accuracy=0.9991`
+  - `board_solved_rate=0.9980`
+  - `mean_total_conflicts=0.02`
+
+### Interpretation
+- Raw checkpoint quality generalizes almost identically to the new split, so the underlying model is stable but still weak without decoding help.
+- The tuned iterative preset also generalizes almost identically, which is the more important result for actual inference use.
+- At this point the biggest open question is no longer whether the tuned policy overfit one split; it is whether its decode cost is acceptable for the intended usage.
+
+### Next Steps
+- Commit this generalization-validation segment.
+- If the next priority is usability, measure single-board and batch latency for `argmax`, unrestricted iterative, tuned iterative, and solver-guided decoding.
+- If the next priority is simpler deployment, package `threshold=0.75`, `max_fills_per_round=2` as a named decode preset.
