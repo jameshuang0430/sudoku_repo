@@ -1,0 +1,59 @@
+{
+  "config": {
+    "train_size": 512,
+    "val_size": 128,
+    "blanks": 40,
+    "dataset": "data\\manifests\\train.jsonl",
+    "val_dataset": "data\\manifests\\val.jsonl",
+    "batch_size": 32,
+    "epochs": 5,
+    "learning_rate": 0.001,
+    "seed": 7
+  },
+  "train_dataset_size": 512,
+  "val_dataset_size": 128,
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 2.2006589621305466,
+      "blank_cell_accuracy": 0.112109375,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 2,
+      "train_loss": 2.1884834468364716,
+      "blank_cell_accuracy": 0.1095703125,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 3,
+      "train_loss": 2.174671784043312,
+      "blank_cell_accuracy": 0.1107421875,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 4,
+      "train_loss": 2.1426927149295807,
+      "blank_cell_accuracy": 0.11484375,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 5,
+      "train_loss": 2.0669279992580414,
+      "blank_cell_accuracy": 0.1216796875,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    }
+  ],
+  "final_metrics": {
+    "epoch": 5,
+    "train_loss": 2.0669279992580414,
+    "blank_cell_accuracy": 0.1216796875,
+    "board_solved_rate": 0.0,
+    "valid_board_rate": 0.0
+  }
+}
