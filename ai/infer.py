@@ -11,6 +11,7 @@ from .checkpoint import load_model_from_checkpoint
 from .dataset import build_sample, flat_to_board, parse_board_text
 from .decode import compose_completed_boards, decode_completed_boards, ITERATIVE_CONFIDENCE_THRESHOLD
 from .eval import summarize_board_violations
+from .presets import DECODE_PRESETS, apply_decode_preset
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -20,11 +21,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     source_group.add_argument("--puzzle", help="Puzzle text using digits and 0 or . for blanks.")
     source_group.add_argument("--file", type=Path, help="Path to a text file containing the puzzle.")
     source_group.add_argument("--stdin", action="store_true", help="Read a pasted puzzle from standard input.")
+    parser.add_argument("--decode-preset", choices=sorted(DECODE_PRESETS.keys()))
     parser.add_argument("--decode-mode", choices=["argmax", "iterative", "solver_guided"], default="iterative")
     parser.add_argument("--iterative-threshold", type=float, default=ITERATIVE_CONFIDENCE_THRESHOLD)
     parser.add_argument("--iterative-max-fills-per-round", type=int)
     parser.add_argument("--show-raw-prediction", action="store_true")
     args = parser.parse_args(argv)
+    args.decode_mode, args.iterative_threshold, args.iterative_max_fills_per_round = apply_decode_preset(
+        args.decode_preset,
+        args.decode_mode,
+        args.iterative_threshold,
+        args.iterative_max_fills_per_round,
+    )
     _validate_decode_args(parser, args)
     return args
 
@@ -61,11 +69,12 @@ def main(argv: Sequence[str] | None = None) -> None:
     checkpoint_config = payload.get("config", {})
 
     print(
-        "checkpoint={checkpoint} model_type={model_type} decode_mode={decode_mode} blanks={blanks} "
+        "checkpoint={checkpoint} model_type={model_type} decode_preset={decode_preset} decode_mode={decode_mode} blanks={blanks} "
         "iterative_threshold={iterative_threshold:.2f} iterative_max_fills_per_round={iterative_max_fills_per_round} "
         "postprocess_change_count={postprocess_change_count} decode_iteration_count={decode_iteration_count}".format(
             checkpoint=args.checkpoint,
             model_type=payload.get("model_type", "unknown"),
+            decode_preset=args.decode_preset,
             decode_mode=args.decode_mode,
             blanks=blank_count,
             iterative_threshold=args.iterative_threshold,

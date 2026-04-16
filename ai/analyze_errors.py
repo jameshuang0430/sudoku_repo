@@ -12,6 +12,7 @@ from .checkpoint import load_model_from_checkpoint
 from .dataset import SudokuDataset, SudokuFileDataset, flat_to_board
 from .decode import compose_completed_boards, decode_completed_boards, ITERATIVE_CONFIDENCE_THRESHOLD
 from .eval import evaluate_model
+from .presets import DECODE_PRESETS, apply_decode_preset
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,12 +23,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--blanks", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--decode-preset", choices=sorted(DECODE_PRESETS.keys()))
     parser.add_argument("--decode-mode", choices=["argmax", "iterative", "solver_guided"], default="argmax")
     parser.add_argument("--iterative-threshold", type=float, default=ITERATIVE_CONFIDENCE_THRESHOLD)
     parser.add_argument("--iterative-max-fills-per-round", type=int)
     parser.add_argument("--limit", type=int, default=3)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
+    args.decode_mode, args.iterative_threshold, args.iterative_max_fills_per_round = apply_decode_preset(
+        args.decode_preset,
+        args.decode_mode,
+        args.iterative_threshold,
+        args.iterative_max_fills_per_round,
+    )
     _validate_decode_args(parser, args)
     return args
 
@@ -60,12 +68,13 @@ def main() -> None:
     training_config = payload.get("config", {})
     evaluation_source = str(args.dataset) if args.dataset is not None else "generated"
     print(
-        "checkpoint={checkpoint} eval_source={eval_source} decode_mode={decode_mode} train_seed={train_seed} "
+        "checkpoint={checkpoint} eval_source={eval_source} decode_preset={decode_preset} decode_mode={decode_mode} train_seed={train_seed} "
         "iterative_threshold={iterative_threshold:.2f} iterative_max_fills_per_round={iterative_max_fills_per_round} "
         "blank_cell_acc={blank_cell_accuracy:.4f} board_solved_rate={board_solved_rate:.4f} "
         "valid_board_rate={valid_board_rate:.4f} mean_decode_iteration_count={mean_decode_iteration_count:.2f}".format(
             checkpoint=args.checkpoint,
             eval_source=evaluation_source,
+            decode_preset=args.decode_preset,
             decode_mode=args.decode_mode,
             train_seed=training_config.get("seed", "unknown"),
             iterative_threshold=args.iterative_threshold,
@@ -107,6 +116,7 @@ def main() -> None:
                         "blanks": args.blanks,
                         "batch_size": args.batch_size,
                         "seed": args.seed,
+                        "decode_preset": args.decode_preset,
                         "decode_mode": args.decode_mode,
                         "iterative_threshold": args.iterative_threshold,
                         "iterative_max_fills_per_round": args.iterative_max_fills_per_round,

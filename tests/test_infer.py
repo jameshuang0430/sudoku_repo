@@ -25,19 +25,16 @@ class InferTests(unittest.TestCase):
                         r"ai\checkpoints\transformer_large_current.best.pt",
                         "--file",
                         str(puzzle_path),
-                        "--decode-mode",
-                        "iterative",
-                        "--iterative-threshold",
-                        "0.7",
-                        "--iterative-max-fills-per-round",
-                        "2",
+                        "--decode-preset",
+                        "iterative_strict",
                     ]
                 )
 
         rendered = output.getvalue()
         self.assertIn("checkpoint=ai\\checkpoints\\transformer_large_current.best.pt", rendered)
+        self.assertIn("decode_preset=iterative_strict", rendered)
         self.assertIn("decode_mode=iterative", rendered)
-        self.assertIn("iterative_threshold=0.70", rendered)
+        self.assertIn("iterative_threshold=0.75", rendered)
         self.assertIn("iterative_max_fills_per_round=2", rendered)
         self.assertIn("puzzle:", rendered)
         self.assertIn("prediction:", rendered)

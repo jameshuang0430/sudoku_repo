@@ -3,7 +3,6 @@
 import argparse
 import json
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean
 from typing import Any, Sequence
@@ -13,32 +12,8 @@ from torch.utils.data import DataLoader, Dataset, Subset
 
 from .checkpoint import load_model_from_checkpoint
 from .dataset import SudokuDataset, SudokuFileDataset
-from .decode import (
-    DecodeMode,
-    ITERATIVE_CONFIDENCE_THRESHOLD,
-    decode_completed_boards,
-)
-
-
-@dataclass(frozen=True)
-class DecodePreset:
-    name: str
-    decode_mode: DecodeMode
-    iterative_threshold: float = ITERATIVE_CONFIDENCE_THRESHOLD
-    iterative_max_fills_per_round: int | None = None
-
-
-DECODE_PRESETS: dict[str, DecodePreset] = {
-    "argmax": DecodePreset(name="argmax", decode_mode="argmax"),
-    "iterative": DecodePreset(name="iterative", decode_mode="iterative"),
-    "iterative_strict": DecodePreset(
-        name="iterative_strict",
-        decode_mode="iterative",
-        iterative_threshold=0.75,
-        iterative_max_fills_per_round=2,
-    ),
-    "solver_guided": DecodePreset(name="solver_guided", decode_mode="solver_guided"),
-}
+from .decode import decode_completed_boards
+from .presets import DECODE_PRESETS, DecodePreset
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

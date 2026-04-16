@@ -675,3 +675,42 @@
 - Commit this latency-profiling segment.
 - Decide whether the product target prefers `iterative_strict` for non-solver purity or `solver_guided` for better latency and exact repair.
 - If the next priority is ergonomics, package the winning decode options as named presets in `ai.infer` and `ai.eval` rather than requiring manual parameter combinations.
+
+## 2026-04-17 Decode Preset Packaging Segment
+
+### Current Progress
+- Added a shared `ai.presets` module so decode preset definitions now live in one place instead of being copied between tools.
+- Wired named decode presets into `ai.eval`, `ai.infer`, and `ai.analyze_errors`.
+- Updated the benchmark CLI to consume the same shared preset definitions.
+- Added regression coverage for preset expansion in both evaluation and single-puzzle inference.
+
+### Issues Encountered
+- After the latency segment, `iterative_strict` only existed as a benchmark preset, so the production-facing CLIs still required manual `threshold` and `max_fills_per_round` arguments.
+- Leaving presets defined in one CLI but not the others would make future tuning fragile, because preset names and actual decode behavior could drift apart.
+
+### Resolution
+- Centralized decode preset definitions in `ai.presets` and exposed `apply_decode_preset()` as the shared expansion helper.
+- Made `--decode-preset` available in `ai.eval`, `ai.infer`, and `ai.analyze_errors`, with preset expansion happening before validation so the effective config is always explicit in logs and reports.
+- Updated tests so the preset path is verified end to end instead of assuming the benchmark-only path was enough.
+
+### Completed Segment
+- You can now run the winning strict iterative path by name instead of repeating the same parameter tuple every time.
+- The benchmark and user-facing CLIs now share one preset registry, so the decode configuration is traceable and consistent.
+- Reports and terminal output now include `decode_preset` when one is used, which makes later experiment review much cleaner.
+
+### Verification
+- `python -m unittest discover -s tests -v`
+- Result: `48` tests passed.
+
+### Usage Summary
+- Evaluation:
+  - `python -m ai.eval --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --decode-preset iterative_strict --report ai\reports\strict_eval.json`
+- Single-puzzle inference:
+  - `python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt --decode-preset iterative_strict`
+- Error analysis:
+  - `python -m ai.analyze_errors --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --decode-preset iterative_strict --limit 2`
+
+### Next Steps
+- Commit this decode-preset packaging segment.
+- If the product path is solver-based, add a corresponding named preset for the preferred solver-guided production mode.
+- If the next priority is UX, add a short summary line in CLI output that marks whether the selected preset is accuracy-oriented or latency-oriented.
