@@ -190,3 +190,58 @@
 - Commit the early-stopping segment.
 - Use the best checkpoint rather than the final checkpoint in future formal evaluations.
 - If the next focus is raw model quality, move next to constraint-aware training.
+
+## 2026-04-16 Current Transformer Training Run
+
+### Current Progress
+- Ran a new formal Transformer training job on the fixed `data\manifests\train.jsonl` / `val.jsonl` split using the new early-stopping and best-checkpoint flow.
+- Saved the final checkpoint, best checkpoint, JSON metrics report, and PNG charts for the run.
+- Evaluated the best checkpoint on the fixed test split with both `argmax` and `iterative` decode modes.
+
+### Issues Encountered
+- Even with the improved training loop, the fixed 512-sample training split is still too small for `board_solved_rate` to move off zero under raw argmax decoding.
+- Early stopping never triggered on this run because the validation ranking kept improving through conflict reduction and cell accuracy, even though solved-board rate stayed flat at zero.
+
+### Resolution
+- Preserved this run as a baseline experiment instead of forcing a larger refactor mid-run.
+- Logged both raw `argmax` and `iterative` test results so the gap between learned weights and inference behavior stays measurable.
+- Kept the best checkpoint at epoch 20 because validation metrics were still improving under the current ranking rule.
+
+### Completed Segment
+- A fresh Transformer run has now been trained and evaluated with the current training stack.
+- The repo now has an up-to-date baseline for the smaller fixed split using the new best-checkpoint workflow.
+
+### Training Run Summary
+- Command:
+  - `python -m ai.train --dataset data\manifests\train.jsonl --val-dataset data\manifests\val.jsonl --model transformer --transformer-embed-dim 128 --transformer-num-heads 8 --transformer-depth 4 --transformer-ff-dim 512 --epochs 20 --batch-size 32 --early-stopping-patience 5 --checkpoint ai\checkpoints\transformer_current.pt --best-checkpoint ai\checkpoints\transformer_current.best.pt --metrics-output ai\reports\transformer_current_metrics.json`
+- Best epoch: `20`
+- Validation metrics at best epoch:
+  - `blank_cell_accuracy=0.6563`
+  - `board_solved_rate=0.0000`
+  - `valid_board_rate=0.0000`
+  - `mean_total_conflicts=28.45`
+
+### Test Evaluation Summary
+- Raw argmax:
+  - `blank_cell_accuracy=0.6621`
+  - `board_solved_rate=0.0000`
+  - `valid_board_rate=0.0000`
+  - `mean_mismatch_count=13.52`
+  - `mean_total_conflicts=27.90`
+- Iterative decoding:
+  - `blank_cell_accuracy=0.8016`
+  - `board_solved_rate=0.0703`
+  - `valid_board_rate=0.0703`
+  - `mean_mismatch_count=7.94`
+  - `mean_total_conflicts=5.88`
+  - `mean_decode_iteration_count=7.10`
+
+### Interpretation
+- This run is materially better than the earliest small-split Transformer baseline, but it still has not crossed the threshold where raw argmax can solve full boards reliably.
+- Iterative decoding remains the only non-solver path here that produces any non-zero solved-board rate.
+- The next improvement should target either more scale or constraint-aware training, because pure supervised cell prediction on this small split is still not enough.
+
+### Next Steps
+- Commit this training/evaluation segment.
+- Prefer evaluating `ai\checkpoints\transformer_current.best.pt` rather than the final checkpoint.
+- If the next run should aim at much higher solved-board rate, increase training scale or move to constraint-aware training.
