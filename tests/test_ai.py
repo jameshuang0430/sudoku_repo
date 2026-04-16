@@ -1,0 +1,358 @@
+﻿import json
+import tempfile
+import unittest
+from pathlib import Path
+
+import torch
+
+from ai.checkpoint import load_model_from_checkpoint
+from ai.dataset import SudokuDataset, SudokuFileDataset, flat_to_board, sample_to_record
+from ai.eval import compose_completed_boards, main as eval_main
+from ai.model import SudokuMLP, SudokuTransformer
+from ai.plot_results import main as plot_main
+from ai.train import main as train_main
+from solver import export_puzzle_dataset
+
+
+class AITests(unittest.TestCase):
+    def test_dataset_sample_shapes(self) -> None:
+        dataset = SudokuDataset(size=2, blanks=10, seed=7)
+        sample = dataset[0]
+
+        self.assertEqual(sample["digits"].shape, (81,))
+        self.assertEqual(sample["givens"].shape, (81,))
+        self.assertEqual(sample["targets"].shape, (81,))
+        self.assertEqual(sample["digits"].dtype, torch.long)
+        self.assertEqual(sample["targets"].dtype, torch.long)
+
+    def test_model_forward_shape(self) -> None:
+        dataset = SudokuDataset(size=2, blanks=10, seed=7)
+        batch_digits = torch.stack([dataset[0]["digits"], dataset[1]["digits"]])
+        batch_givens = torch.stack([dataset[0]["givens"], dataset[1]["givens"]])
+
+        model = SudokuMLP()
+        logits = model(batch_digits, batch_givens)
+
+        self.assertEqual(logits.shape, (2, 81, 9))
+
+    def test_transformer_forward_shape(self) -> None:
+        dataset = SudokuDataset(size=2, blanks=10, seed=7)
+        batch_digits = torch.stack([dataset[0]["digits"], dataset[1]["digits"]])
+        batch_givens = torch.stack([dataset[0]["givens"], dataset[1]["givens"]])
+
+        model = SudokuTransformer(embed_dim=32, num_heads=4, depth=2, ff_dim=64, dropout=0.0)
+        logits = model(batch_digits, batch_givens)
+
+        self.assertEqual(logits.shape, (2, 81, 9))
+
+    def test_sample_to_record_returns_9x9_boards(self) -> None:
+        dataset = SudokuDataset(size=1, blanks=10, seed=7)
+        record = sample_to_record(dataset[0])
+
+        self.assertEqual(len(record["puzzle"]), 9)
+        self.assertEqual(len(record["solution"]), 9)
+        self.assertEqual(record["blank_count"], 10)
+
+    def test_file_dataset_loads_inline_records(self) -> None:
+        dataset = SudokuDataset(size=2, blanks=10, seed=7)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dataset_path = Path(temp_dir) / "dataset.jsonl"
+            with dataset_path.open("w", encoding="utf-8") as handle:
+                for index in range(len(dataset)):
+                    handle.write(json.dumps(sample_to_record(dataset[index])))
+                    handle.write("\n")
+
+            file_dataset = SudokuFileDataset(dataset_path)
+
+        self.assertEqual(len(file_dataset), 2)
+        self.assertEqual(file_dataset[0]["digits"].shape, (81,))
+
+    def test_file_dataset_loads_path_records(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            export_dir = Path(temp_dir) / "puzzles"
+            records = export_puzzle_dataset(output_dir=export_dir, size=2, blanks=10, seed=7)
+            dataset_path = Path(temp_dir) / "manifest.jsonl"
+            with dataset_path.open("w", encoding="utf-8") as handle:
+                for record in records:
+                    handle.write(
+                        json.dumps(
+                            {
+                                "puzzle_path": str(Path("puzzles") / Path(record["puzzle_path"]).name),
+                                "solution_path": str(Path("puzzles") / Path(record["solution_path"]).name),
+                            }
+                        )
+                    )
+                    handle.write("\n")
+
+            file_dataset = SudokuFileDataset(dataset_path)
+
+        self.assertEqual(len(file_dataset), 2)
+        self.assertTrue(torch.equal(file_dataset[0]["givens"], (file_dataset[0]["digits"] != 0).to(dtype=torch.float32)))
+
+    def test_compose_completed_boards_preserves_givens(self) -> None:
+        digits = torch.tensor([[5, 0, 0, 4]], dtype=torch.long)
+        predictions = torch.tensor([[2, 3, 4, 1]], dtype=torch.long)
+
+        completed = compose_completed_boards(digits, predictions)
+
+        self.assertEqual(completed.tolist(), [[5, 4, 5, 4]])
+
+    def test_load_model_from_checkpoint_restores_model(self) -> None:
+        model = SudokuMLP(embed_dim=8, hidden_dim=64, depth=2, dropout=0.0)
+        payload = {
+            "model_state_dict": model.state_dict(),
+            "model_type": "mlp",
+            "model_config": model.get_config(),
+            "config": {"seed": 7},
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            checkpoint_path = Path(temp_dir) / "model.pt"
+            torch.save(payload, checkpoint_path)
+
+            restored_model, restored_payload = load_model_from_checkpoint(
+                checkpoint_path,
+                torch.device("cpu"),
+            )
+
+        self.assertIsInstance(restored_model, SudokuMLP)
+        self.assertEqual(restored_payload["config"]["seed"], 7)
+        self.assertEqual(restored_model.get_config()["embed_dim"], 8)
+
+    def test_load_model_from_checkpoint_restores_transformer(self) -> None:
+        model = SudokuTransformer(embed_dim=32, num_heads=4, depth=2, ff_dim=64, dropout=0.0)
+        payload = {
+            "model_state_dict": model.state_dict(),
+            "model_type": "transformer",
+            "model_config": model.get_config(),
+            "config": {"seed": 7},
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            checkpoint_path = Path(temp_dir) / "transformer.pt"
+            torch.save(payload, checkpoint_path)
+
+            restored_model, restored_payload = load_model_from_checkpoint(
+                checkpoint_path,
+                torch.device("cpu"),
+            )
+
+        self.assertIsInstance(restored_model, SudokuTransformer)
+        self.assertEqual(restored_payload["config"]["seed"], 7)
+        self.assertEqual(restored_model.get_config()["num_heads"], 4)
+
+    def test_train_main_supports_dataset_file(self) -> None:
+        dataset = SudokuDataset(size=8, blanks=10, seed=7)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dataset_path = Path(temp_dir) / "dataset.jsonl"
+            checkpoint_path = Path(temp_dir) / "checkpoint.pt"
+            metrics_path = Path(temp_dir) / "metrics.json"
+            with dataset_path.open("w", encoding="utf-8") as handle:
+                for index in range(len(dataset)):
+                    handle.write(json.dumps(sample_to_record(dataset[index])))
+                    handle.write("\n")
+
+            train_main(
+                [
+                    "--dataset",
+                    str(dataset_path),
+                    "--val-size",
+                    "2",
+                    "--epochs",
+                    "1",
+                    "--batch-size",
+                    "2",
+                    "--checkpoint",
+                    str(checkpoint_path),
+                    "--metrics-output",
+                    str(metrics_path),
+                ]
+            )
+
+            metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+            self.assertTrue(checkpoint_path.exists())
+            self.assertEqual(len(metrics["epochs"]), 1)
+
+    def test_train_main_supports_transformer_model(self) -> None:
+        dataset = SudokuDataset(size=8, blanks=10, seed=7)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dataset_path = Path(temp_dir) / "dataset.jsonl"
+            checkpoint_path = Path(temp_dir) / "transformer.pt"
+            with dataset_path.open("w", encoding="utf-8") as handle:
+                for index in range(len(dataset)):
+                    handle.write(json.dumps(sample_to_record(dataset[index])))
+                    handle.write("\n")
+
+            train_main(
+                [
+                    "--dataset",
+                    str(dataset_path),
+                    "--val-size",
+                    "2",
+                    "--epochs",
+                    "1",
+                    "--batch-size",
+                    "2",
+                    "--model",
+                    "transformer",
+                    "--transformer-embed-dim",
+                    "32",
+                    "--transformer-num-heads",
+                    "4",
+                    "--transformer-depth",
+                    "2",
+                    "--transformer-ff-dim",
+                    "64",
+                    "--dropout",
+                    "0.0",
+                    "--checkpoint",
+                    str(checkpoint_path),
+                ]
+            )
+
+            payload = torch.load(checkpoint_path, map_location=torch.device("cpu"))
+            self.assertEqual(payload["model_type"], "transformer")
+
+    def test_train_main_supports_separate_val_dataset(self) -> None:
+        train_dataset = SudokuDataset(size=6, blanks=10, seed=7)
+        val_dataset = SudokuDataset(size=2, blanks=10, seed=101)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            train_path = Path(temp_dir) / "train.jsonl"
+            val_path = Path(temp_dir) / "val.jsonl"
+            checkpoint_path = Path(temp_dir) / "checkpoint.pt"
+
+            with train_path.open("w", encoding="utf-8") as handle:
+                for index in range(len(train_dataset)):
+                    handle.write(json.dumps(sample_to_record(train_dataset[index])))
+                    handle.write("\n")
+
+            with val_path.open("w", encoding="utf-8") as handle:
+                for index in range(len(val_dataset)):
+                    handle.write(json.dumps(sample_to_record(val_dataset[index])))
+                    handle.write("\n")
+
+            train_main(
+                [
+                    "--dataset",
+                    str(train_path),
+                    "--val-dataset",
+                    str(val_path),
+                    "--epochs",
+                    "1",
+                    "--batch-size",
+                    "2",
+                    "--checkpoint",
+                    str(checkpoint_path),
+                ]
+            )
+
+            self.assertTrue(checkpoint_path.exists())
+
+    def test_eval_main_supports_dataset_file(self) -> None:
+        dataset = SudokuDataset(size=4, blanks=10, seed=7)
+        model = SudokuMLP()
+        payload = {
+            "model_state_dict": model.state_dict(),
+            "model_type": "mlp",
+            "model_config": model.get_config(),
+            "config": {"seed": 7},
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dataset_path = Path(temp_dir) / "test.jsonl"
+            checkpoint_path = Path(temp_dir) / "model.pt"
+            report_path = Path(temp_dir) / "eval_report.json"
+
+            with dataset_path.open("w", encoding="utf-8") as handle:
+                for index in range(len(dataset)):
+                    handle.write(json.dumps(sample_to_record(dataset[index])))
+                    handle.write("\n")
+
+            torch.save(payload, checkpoint_path)
+
+            eval_main(
+                [
+                    "--checkpoint",
+                    str(checkpoint_path),
+                    "--dataset",
+                    str(dataset_path),
+                    "--batch-size",
+                    "2",
+                    "--report",
+                    str(report_path),
+                ]
+            )
+
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+
+        self.assertIn("metrics", report)
+        self.assertEqual(report["evaluation_config"]["dataset"], str(dataset_path))
+
+    def test_plot_main_supports_training_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_path = Path(temp_dir) / "train_metrics.json"
+            output_path = Path(temp_dir) / "train_metrics.png"
+            input_path.write_text(
+                json.dumps(
+                    {
+                        "epochs": [
+                            {
+                                "epoch": 1,
+                                "train_loss": 2.2,
+                                "blank_cell_accuracy": 0.1,
+                                "board_solved_rate": 0.0,
+                                "valid_board_rate": 0.0,
+                            },
+                            {
+                                "epoch": 2,
+                                "train_loss": 2.0,
+                                "blank_cell_accuracy": 0.15,
+                                "board_solved_rate": 0.01,
+                                "valid_board_rate": 0.02,
+                            },
+                        ]
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            plot_main(["--input", str(input_path), "--output", str(output_path)])
+
+            self.assertTrue(output_path.exists())
+            self.assertGreater(output_path.stat().st_size, 0)
+
+    def test_plot_main_supports_evaluation_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_path = Path(temp_dir) / "eval_report.json"
+            output_path = Path(temp_dir) / "eval_report.png"
+            input_path.write_text(
+                json.dumps(
+                    {
+                        "metrics": {
+                            "blank_cell_accuracy": 0.12,
+                            "board_solved_rate": 0.0,
+                            "valid_board_rate": 0.03,
+                        }
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            plot_main(["--input", str(input_path), "--output", str(output_path)])
+
+            self.assertTrue(output_path.exists())
+            self.assertGreater(output_path.stat().st_size, 0)
+
+    def test_flat_to_board_rejects_wrong_length(self) -> None:
+        with self.assertRaisesRegex(ValueError, "exactly 81 values"):
+            flat_to_board([1, 2, 3])
+
+
+if __name__ == "__main__":
+    unittest.main()
