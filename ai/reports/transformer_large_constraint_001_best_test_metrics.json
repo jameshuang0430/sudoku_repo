@@ -1,0 +1,41 @@
+{
+  "metrics": {
+    "blank_cell_accuracy": 0.828564453125,
+    "board_solved_rate": 0.0,
+    "valid_board_rate": 0.0,
+    "mean_mismatch_count": 6.857421875,
+    "mean_row_conflicts": 4.490234375,
+    "mean_col_conflicts": 4.701171875,
+    "mean_box_conflicts": 3.818359375,
+    "mean_total_conflicts": 13.009765625,
+    "mean_postprocess_change_count": 0.0,
+    "mean_decode_iteration_count": 0.0
+  },
+  "training_config": {
+    "train_size": 512,
+    "val_size": 128,
+    "resolved_train_size": 4096,
+    "resolved_val_size": 512,
+    "blanks": 40,
+    "dataset": "data\\manifests_large\\train.jsonl",
+    "val_dataset": "data\\manifests_large\\val.jsonl",
+    "model_type": "transformer",
+    "batch_size": 32,
+    "epochs": 20,
+    "learning_rate": 0.001,
+    "seed": 7,
+    "early_stopping_patience": 5,
+    "constraint_loss_weight": 0.01,
+    "best_epoch": 18,
+    "stopped_early": false
+  },
+  "evaluation_config": {
+    "checkpoint": "ai\\checkpoints\\transformer_large_constraint_001.best.pt",
+    "dataset": "data\\manifests_large\\test.jsonl",
+    "dataset_size": 32,
+    "blanks": 40,
+    "batch_size": 32,
+    "seed": 7,
+    "decode_mode": "argmax"
+  }
+}

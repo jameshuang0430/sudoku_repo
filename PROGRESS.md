@@ -433,3 +433,51 @@
 - Commit the constraint-aware training segment.
 - If this direction is worth pursuing, run a smaller weight sweep such as `0.005`, `0.01`, and `0.02` instead of increasing the penalty further.
 - Keep `ai\checkpoints\transformer_large_current.best.pt` as the default best-performing large checkpoint for now.
+
+## 2026-04-17 Small Constraint-Weight Sweep
+
+### Current Progress
+- Ran a follow-up large-scale constraint-aware sweep with smaller weights: `0.005`, `0.01`, and `0.02`.
+- Evaluated each best checkpoint on the fixed large test split with both `argmax` and `iterative` decoding.
+- Compared all three weights against the current unconstrained large baseline and the earlier `0.05` constraint run.
+
+### Issues Encountered
+- Each small-weight run still took the full 20 epochs, so the sweep remained compute-heavy even though the penalties were gentler than `0.05`.
+- None of the tested small weights beat the current unconstrained large baseline on solved-board rate.
+
+### Resolution
+- Kept the sweep focused on three weights instead of expanding further before seeing the trend.
+- Used the same large split and same model hyperparameters for every run so the comparison stays clean.
+- Treated `0.005`, `0.01`, and `0.02` as a first local sweep rather than continuing to larger or denser grids immediately.
+
+### Completed Segment
+- The repo now has a meaningful first sweep over small constraint-loss weights.
+- We now know that lighter penalties are better than `0.05`, but still not better than the unconstrained large baseline overall.
+
+### Sweep Summary
+- Baseline unconstrained large test:
+  - raw argmax: `blank_cell_accuracy=0.8448`, `board_solved_rate=0.0059`, `mean_total_conflicts=11.68`
+  - iterative: `blank_cell_accuracy=0.9063`, `board_solved_rate=0.2969`, `mean_total_conflicts=3.50`
+- Constraint `0.005` test:
+  - raw argmax: `blank_cell_accuracy=0.8317`, `board_solved_rate=0.0020`, `mean_total_conflicts=12.64`
+  - iterative: `blank_cell_accuracy=0.8985`, `board_solved_rate=0.2539`, `mean_total_conflicts=3.79`
+- Constraint `0.01` test:
+  - raw argmax: `blank_cell_accuracy=0.8286`, `board_solved_rate=0.0000`, `mean_total_conflicts=13.01`
+  - iterative: `blank_cell_accuracy=0.9001`, `board_solved_rate=0.2578`, `mean_total_conflicts=3.79`
+- Constraint `0.02` test:
+  - raw argmax: `blank_cell_accuracy=0.8305`, `board_solved_rate=0.0059`, `mean_total_conflicts=12.84`
+  - iterative: `blank_cell_accuracy=0.8987`, `board_solved_rate=0.2578`, `mean_total_conflicts=3.75`
+- Earlier constraint `0.05` test:
+  - raw argmax: `blank_cell_accuracy=0.7975`, `board_solved_rate=0.0000`, `mean_total_conflicts=16.19`
+  - iterative: `blank_cell_accuracy=0.8825`, `board_solved_rate=0.2129`, `mean_total_conflicts=3.38`
+
+### Interpretation
+- `0.005` to `0.02` are clearly better than `0.05`, so the first penalty was too strong.
+- Among the new runs, `0.02` is the least bad on raw argmax and ties the baseline raw solved-board rate, but it still does not beat the unconstrained baseline on accuracy or conflicts.
+- `0.01` and `0.02` slightly improve over `0.005` on iterative solved-board rate, but all three remain below the unconstrained large iterative baseline of `0.2969`.
+- The current best overall checkpoint is still `ai\checkpoints\transformer_large_current.best.pt`.
+
+### Next Steps
+- Commit the small-weight sweep results.
+- If this direction is pursued further, the next most sensible tests are either a very small weight like `0.001` or a different constraint formulation, not simply more weights around `0.05`.
+- If the goal is fastest progress on solved-board rate, return focus to scale and decoding rather than this constraint penalty alone.
