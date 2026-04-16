@@ -11,6 +11,7 @@ class DecodePreset:
     decode_mode: DecodeMode
     iterative_threshold: float = ITERATIVE_CONFIDENCE_THRESHOLD
     iterative_max_fills_per_round: int | None = None
+    profile: str = "research"
     summary: str = ""
 
 
@@ -18,11 +19,13 @@ DECODE_PRESETS: dict[str, DecodePreset] = {
     "research_raw": DecodePreset(
         name="research_raw",
         decode_mode="argmax",
+        profile="research",
         summary="Raw model output with no repair.",
     ),
     "research_iterative": DecodePreset(
         name="research_iterative",
         decode_mode="iterative",
+        profile="research",
         summary="Unrestricted iterative refinement for research comparison.",
     ),
     "production_pure": DecodePreset(
@@ -30,21 +33,25 @@ DECODE_PRESETS: dict[str, DecodePreset] = {
         decode_mode="iterative",
         iterative_threshold=0.75,
         iterative_max_fills_per_round=2,
+        profile="accuracy_oriented",
         summary="Strict non-solver iterative decoding tuned for accuracy.",
     ),
     "production_fast": DecodePreset(
         name="production_fast",
         decode_mode="solver_guided",
+        profile="latency_oriented",
         summary="Solver-guided production path optimized for exact repair and lower CPU latency.",
     ),
     "argmax": DecodePreset(
         name="argmax",
         decode_mode="argmax",
+        profile="research",
         summary="Back-compat alias for research_raw.",
     ),
     "iterative": DecodePreset(
         name="iterative",
         decode_mode="iterative",
+        profile="research",
         summary="Back-compat alias for research_iterative.",
     ),
     "iterative_strict": DecodePreset(
@@ -52,14 +59,22 @@ DECODE_PRESETS: dict[str, DecodePreset] = {
         decode_mode="iterative",
         iterative_threshold=0.75,
         iterative_max_fills_per_round=2,
+        profile="accuracy_oriented",
         summary="Back-compat alias for production_pure.",
     ),
     "solver_guided": DecodePreset(
         name="solver_guided",
         decode_mode="solver_guided",
+        profile="latency_oriented",
         summary="Back-compat alias for production_fast.",
     ),
 }
+
+
+def get_decode_preset(decode_preset: str | None) -> DecodePreset | None:
+    if decode_preset is None:
+        return None
+    return DECODE_PRESETS[decode_preset]
 
 
 def apply_decode_preset(
@@ -68,8 +83,8 @@ def apply_decode_preset(
     iterative_threshold: float,
     iterative_max_fills_per_round: int | None,
 ) -> tuple[DecodeMode, float, int | None]:
-    if decode_preset is None:
+    preset = get_decode_preset(decode_preset)
+    if preset is None:
         return decode_mode, iterative_threshold, iterative_max_fills_per_round
 
-    preset = DECODE_PRESETS[decode_preset]
     return preset.decode_mode, preset.iterative_threshold, preset.iterative_max_fills_per_round

@@ -715,3 +715,41 @@
 - The preset registry now includes both `production_pure` and `production_fast`, while keeping the older research-oriented names as aliases for back-compat.
 - If the next priority is UX, add a short summary line in CLI output that marks whether the selected preset is accuracy-oriented or latency-oriented.
 
+
+## 2026-04-17 CLI UX Segment
+
+### Current Progress
+- Added preset-profile metadata so decode choices now advertise whether they are latency-oriented, accuracy-oriented, or research-only.
+- Changed `ai.infer` to default to `production_fast`, so the out-of-the-box single-puzzle path now matches the current product recommendation.
+- Reworked the README front section to be product-first instead of forcing users through the research presets before they can use the tool.
+
+### Issues Encountered
+- Even after product preset naming was added, the CLI still felt too research-shaped because `ai.infer` required an explicit preset to reach the recommended path.
+- The previous output showed `decode_preset` but not why that preset existed, so users still had to remember the latency-vs-accuracy tradeoff from the docs.
+
+### Resolution
+- Added `profile` metadata to shared presets and surfaced `preset_profile` plus `preset_summary` in CLI output.
+- Set `ai.infer` to default to `production_fast` while keeping all explicit preset and manual parameter paths intact.
+- Reordered the README so the recommended product presets and default commands are visible before the lower-level research workflow.
+
+### Completed Segment
+- The CLI is now product-oriented by default instead of only technically capable.
+- `ai.infer` now opens with the fastest recommended production path unless the user overrides it.
+- Decode presets now communicate intent directly in output, not just the parameter tuple underneath.
+
+### Verification
+- `python -m unittest discover -s tests -v`
+- Result: `49` tests passed.
+
+### Usage Summary
+- Default product inference:
+  - `python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt`
+- Explicit accuracy-first production inference:
+  - `python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt --decode-preset production_pure`
+- Production-fast evaluation:
+  - `python -m ai.eval --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --decode-preset production_fast --report ai\reports\production_fast_eval.json`
+
+### Next Steps
+- Commit this CLI UX segment.
+- If the next priority is polishing output further, add a one-line recommendation when the user selects a research preset for an inference task.
+- If the next priority is packaging, consider a thin wrapper command that hides checkpoint paths for the current best production model.

@@ -12,7 +12,7 @@ from .checkpoint import load_model_from_checkpoint
 from .dataset import SudokuDataset, SudokuFileDataset, flat_to_board
 from .decode import compose_completed_boards, decode_completed_boards, ITERATIVE_CONFIDENCE_THRESHOLD
 from .eval import evaluate_model
-from .presets import DECODE_PRESETS, apply_decode_preset
+from .presets import DECODE_PRESETS, apply_decode_preset, get_decode_preset
 
 
 def parse_args() -> argparse.Namespace:
@@ -67,14 +67,17 @@ def main() -> None:
 
     training_config = payload.get("config", {})
     evaluation_source = str(args.dataset) if args.dataset is not None else "generated"
+    preset = get_decode_preset(args.decode_preset)
+    preset_profile = preset.profile if preset is not None else "custom"
     print(
-        "checkpoint={checkpoint} eval_source={eval_source} decode_preset={decode_preset} decode_mode={decode_mode} train_seed={train_seed} "
+        "checkpoint={checkpoint} eval_source={eval_source} decode_preset={decode_preset} preset_profile={preset_profile} decode_mode={decode_mode} train_seed={train_seed} "
         "iterative_threshold={iterative_threshold:.2f} iterative_max_fills_per_round={iterative_max_fills_per_round} "
         "blank_cell_acc={blank_cell_accuracy:.4f} board_solved_rate={board_solved_rate:.4f} "
         "valid_board_rate={valid_board_rate:.4f} mean_decode_iteration_count={mean_decode_iteration_count:.2f}".format(
             checkpoint=args.checkpoint,
             eval_source=evaluation_source,
             decode_preset=args.decode_preset,
+            preset_profile=preset_profile,
             decode_mode=args.decode_mode,
             train_seed=training_config.get("seed", "unknown"),
             iterative_threshold=args.iterative_threshold,
@@ -82,6 +85,8 @@ def main() -> None:
             **metrics,
         )
     )
+    if preset is not None:
+        print(f"preset_summary={preset.summary}")
 
     if not error_cases:
         print("No error cases found in the evaluated sample.")
@@ -117,6 +122,7 @@ def main() -> None:
                         "batch_size": args.batch_size,
                         "seed": args.seed,
                         "decode_preset": args.decode_preset,
+                        "preset_profile": preset_profile,
                         "decode_mode": args.decode_mode,
                         "iterative_threshold": args.iterative_threshold,
                         "iterative_max_fills_per_round": args.iterative_max_fills_per_round,

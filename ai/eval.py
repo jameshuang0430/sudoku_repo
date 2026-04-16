@@ -13,7 +13,7 @@ from solver import validate_board
 from .checkpoint import load_model_from_checkpoint
 from .dataset import SudokuDataset, SudokuFileDataset
 from .decode import decode_completed_boards, ITERATIVE_CONFIDENCE_THRESHOLD
-from .presets import DECODE_PRESETS, apply_decode_preset
+from .presets import DECODE_PRESETS, apply_decode_preset, get_decode_preset
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -57,8 +57,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
     training_config = payload.get("config", {})
     evaluation_source = str(args.dataset) if args.dataset is not None else "generated"
+    preset = get_decode_preset(args.decode_preset)
+    preset_profile = preset.profile if preset is not None else "custom"
     print(
-        "checkpoint={checkpoint} eval_source={eval_source} decode_preset={decode_preset} decode_mode={decode_mode} train_seed={train_seed} "
+        "checkpoint={checkpoint} eval_source={eval_source} decode_preset={decode_preset} preset_profile={preset_profile} decode_mode={decode_mode} train_seed={train_seed} "
         "iterative_threshold={iterative_threshold:.2f} iterative_max_fills_per_round={iterative_max_fills_per_round} "
         "blank_cell_acc={blank_cell_accuracy:.4f} board_solved_rate={board_solved_rate:.4f} "
         "valid_board_rate={valid_board_rate:.4f} mean_mismatch_count={mean_mismatch_count:.2f} "
@@ -67,6 +69,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             checkpoint=args.checkpoint,
             eval_source=evaluation_source,
             decode_preset=args.decode_preset,
+            preset_profile=preset_profile,
             decode_mode=args.decode_mode,
             train_seed=training_config.get("seed", "unknown"),
             iterative_threshold=args.iterative_threshold,
@@ -74,6 +77,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             **metrics,
         )
     )
+    if preset is not None:
+        print(f"preset_summary={preset.summary}")
 
     if args.report is not None:
         args.report.parent.mkdir(parents=True, exist_ok=True)
@@ -90,6 +95,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                         "batch_size": args.batch_size,
                         "seed": args.seed,
                         "decode_preset": args.decode_preset,
+                        "preset_profile": preset_profile,
                         "decode_mode": args.decode_mode,
                         "iterative_threshold": args.iterative_threshold,
                         "iterative_max_fills_per_round": args.iterative_max_fills_per_round,

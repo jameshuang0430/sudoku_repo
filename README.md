@@ -41,6 +41,23 @@ ai/
   train.py
 ```
 
+## Product Presets
+
+Recommended product-facing decode presets:
+- `production_fast`: solver-guided exact repair with the best current latency / accuracy tradeoff.
+- `production_pure`: strict non-solver iterative decoding for the best current pure-model accuracy.
+- `research_raw`: raw argmax baseline for debugging and comparison.
+- `research_iterative`: unrestricted iterative baseline for research comparison.
+
+Recommended default commands:
+
+```powershell
+python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt
+python -m ai.eval --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --decode-preset production_fast --report ai\reports\production_fast_eval.json
+python -m ai.eval --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --decode-preset production_pure --report ai\reports\production_pure_eval.json
+```
+
+`ai.infer` now defaults to `--decode-preset production_fast` when no preset is specified.
 ## Quick start
 
 Run tests:
@@ -154,10 +171,10 @@ Evaluate the same checkpoint with solver-guided post-processing:
 python -m ai.eval --checkpoint ai\checkpoints\transformer_large.pt --dataset data\manifests_large\test.jsonl --batch-size 32 --decode-mode solver_guided --report ai\reports\transformer_large_solver_guided_test_metrics.json
 ```
 
-Run single-puzzle inference from a file:
+Run single-puzzle inference from a file with the default production-fast preset:
 
 ```powershell
-python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt --decode-mode iterative
+python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt
 ```
 
 Run single-puzzle inference with the product-grade pure-model preset:
@@ -258,6 +275,7 @@ A good order for this repo is:
 9. Try `--constraint-loss-weight` if you want to bias training toward lower structural conflict.
 10. Render the training and evaluation reports with `ai.plot_results`.
 11. Use `analyze_errors.py` to inspect failure modes.
+
 
 
 
