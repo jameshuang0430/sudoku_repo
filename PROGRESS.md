@@ -609,3 +609,69 @@
 - Commit this generalization-validation segment.
 - If the next priority is usability, measure single-board and batch latency for `argmax`, unrestricted iterative, tuned iterative, and solver-guided decoding.
 - If the next priority is simpler deployment, package `threshold=0.75`, `max_fills_per_round=2` as a named decode preset.
+
+## 2026-04-17 Latency Profiling Segment
+
+### Current Progress
+- Added `ai.benchmark` so decode latency can now be measured from the CLI instead of by ad-hoc terminal timing.
+- Added a dedicated benchmark test and documented the new workflow in the README.
+- Profiled the current best checkpoint on the fresh generalization test split across four decode presets and two batch sizes.
+
+### Issues Encountered
+- The strongest non-solver preset (`iterative_strict`) is much slower than the earlier unrestricted iterative policy because it re-runs the model for many more refinement rounds.
+- The latency results also show that solver-guided decoding is faster than `iterative_strict` on this CPU setup, which is counterintuitive if you only look at the decoder names.
+
+### Resolution
+- Captured the latency data as a committed JSON report instead of relying on one-off terminal output.
+- Kept both `batch_size=1` and `batch_size=32` in the benchmark so the report reflects both interactive and throughput-oriented usage.
+- Treated `solver_guided` as a real deployment tradeoff option rather than assuming it is automatically too expensive.
+
+### Completed Segment
+- The repo now has a reusable latency benchmark CLI for checkpoints and decode presets.
+- We now have concrete timing data for `argmax`, unrestricted `iterative`, tuned `iterative_strict`, and `solver_guided` on the current best checkpoint.
+- The accuracy-vs-latency tradeoff is now explicit instead of inferred.
+
+### Benchmark Setup
+- Command:
+  - `python -m ai.benchmark --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --batch-sizes 1 32 --decode-presets argmax iterative iterative_strict solver_guided --max-samples 128 --warmup-batches 1 --repeats 3 --report ai\reports\transformer_large_generalization_latency.json`
+- Device:
+  - CPU
+- Sample count per benchmark case:
+  - `128`
+
+### Latency Summary
+- `argmax`, `batch_size=1`:
+  - `mean_board_duration_ms=1.05`
+  - `throughput_boards_per_second=950.16`
+- `argmax`, `batch_size=32`:
+  - `mean_board_duration_ms=0.41`
+  - `throughput_boards_per_second=2428.91`
+- `iterative`, `batch_size=1`:
+  - `mean_board_duration_ms=4.41`
+  - `throughput_boards_per_second=226.58`
+- `iterative`, `batch_size=32`:
+  - `mean_board_duration_ms=3.82`
+  - `throughput_boards_per_second=261.79`
+- `iterative_strict`, `batch_size=1`:
+  - `mean_board_duration_ms=23.15`
+  - `throughput_boards_per_second=43.19`
+- `iterative_strict`, `batch_size=32`:
+  - `mean_board_duration_ms=22.35`
+  - `throughput_boards_per_second=44.74`
+- `solver_guided`, `batch_size=1`:
+  - `mean_board_duration_ms=1.54`
+  - `throughput_boards_per_second=650.84`
+- `solver_guided`, `batch_size=32`:
+  - `mean_board_duration_ms=0.90`
+  - `throughput_boards_per_second=1107.81`
+
+### Interpretation
+- `argmax` is still by far the fastest path, but its accuracy remains too weak to use directly.
+- The old unrestricted `iterative` path is a moderate latency increase over `argmax`, but still nowhere near the new near-perfect solved-board rate.
+- `iterative_strict` buys the near-perfect `0.9980` solved-board rate, but it costs roughly `22-23 ms` per board on CPU and barely benefits from larger batch size because the repeated refinement loop dominates.
+- `solver_guided` is much faster than `iterative_strict` on this setup, so if exact-solver post-processing is acceptable, it is currently the cleaner production choice.
+
+### Next Steps
+- Commit this latency-profiling segment.
+- Decide whether the product target prefers `iterative_strict` for non-solver purity or `solver_guided` for better latency and exact repair.
+- If the next priority is ergonomics, package the winning decode options as named presets in `ai.infer` and `ai.eval` rather than requiring manual parameter combinations.

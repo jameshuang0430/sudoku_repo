@@ -234,6 +234,14 @@ Analyze a fixed manifest with solver-guided decoding:
 python -m ai.analyze_errors --checkpoint ai/checkpoints/transformer_large.pt --dataset data/manifests_large/test.jsonl --decode-mode solver_guided --limit 2
 ```
 
+Benchmark latency across decode presets:
+
+```powershell
+python -m ai.benchmark --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --batch-sizes 1 32 --decode-presets argmax iterative iterative_strict solver_guided --max-samples 128 --repeats 3 --report ai\reports\transformer_large_generalization_latency.json
+```
+
+`ai.benchmark` reports mean total time, mean per-board time, mean per-batch time, and throughput for each decode preset / batch-size pair.
+
 ## Learning path
 
 A good order for this repo is:
@@ -249,4 +257,5 @@ A good order for this repo is:
 9. Try `--constraint-loss-weight` if you want to bias training toward lower structural conflict.
 10. Render the training and evaluation reports with `ai.plot_results`.
 11. Use `analyze_errors.py` to inspect failure modes.
+
 
