@@ -1,0 +1,95 @@
+{
+  "config": {
+    "train_size": 512,
+    "val_size": 128,
+    "blanks": 40,
+    "dataset": "data\\manifests_large\\train.jsonl",
+    "val_dataset": "data\\manifests_large\\val.jsonl",
+    "model_type": "transformer",
+    "batch_size": 32,
+    "epochs": 10,
+    "learning_rate": 0.001,
+    "seed": 7
+  },
+  "train_dataset_size": 4096,
+  "val_dataset_size": 512,
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 2.2104582022875547,
+      "blank_cell_accuracy": 0.12314453125,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 2,
+      "train_loss": 1.9304428156465292,
+      "blank_cell_accuracy": 0.444580078125,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 3,
+      "train_loss": 1.1750742699950933,
+      "blank_cell_accuracy": 0.69189453125,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.8573103868402541,
+      "blank_cell_accuracy": 0.754931640625,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.7190075898543,
+      "blank_cell_accuracy": 0.781689453125,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.633597597014159,
+      "blank_cell_accuracy": 0.797021484375,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.5890032867901027,
+      "blank_cell_accuracy": 0.802734375,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.5573802278377116,
+      "blank_cell_accuracy": 0.807421875,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.5347249845508486,
+      "blank_cell_accuracy": 0.814208984375,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    },
+    {
+      "epoch": 10,
+      "train_loss": 0.5191376919392496,
+      "blank_cell_accuracy": 0.8138671875,
+      "board_solved_rate": 0.0,
+      "valid_board_rate": 0.0
+    }
+  ],
+  "final_metrics": {
+    "epoch": 10,
+    "train_loss": 0.5191376919392496,
+    "blank_cell_accuracy": 0.8138671875,
+    "board_solved_rate": 0.0,
+    "valid_board_rate": 0.0
+  }
+}
