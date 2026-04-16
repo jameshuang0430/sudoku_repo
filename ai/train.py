@@ -14,6 +14,28 @@ from .eval import evaluate_model
 from .model import create_model
 
 
+UNIT_INDICES = torch.tensor(
+    [
+        [row * 9 + col for col in range(9)]
+        for row in range(9)
+    ]
+    + [
+        [row * 9 + col for row in range(9)]
+        for col in range(9)
+    ]
+    + [
+        [
+            row * 9 + col
+            for row in range(box_row, box_row + 3)
+            for col in range(box_col, box_col + 3)
+        ]
+        for box_row in range(0, 9, 3)
+        for box_col in range(0, 9, 3)
+    ],
+    dtype=torch.long,
+)
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train a baseline Sudoku model.")
     parser.add_argument("--train-size", type=int, default=512)
@@ -35,6 +57,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--early-stopping-patience", type=int, default=5)
+    parser.add_argument("--constraint-loss-weight", type=float, default=0.0)
     parser.add_argument(
         "--checkpoint",
         type=Path,
@@ -89,6 +112,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "learning_rate": args.learning_rate,
         "seed": args.seed,
         "early_stopping_patience": args.early_stopping_patience,
+        "constraint_loss_weight": args.constraint_loss_weight,
     }
 
     args.checkpoint.parent.mkdir(parents=True, exist_ok=True)
@@ -101,20 +125,25 @@ def main(argv: Sequence[str] | None = None) -> None:
     stopped_early = False
 
     for epoch in range(1, args.epochs + 1):
-        train_loss = train_one_epoch(model, train_loader, optimizer, device)
+        train_stats = train_one_epoch(
+            model,
+            train_loader,
+            optimizer,
+            device,
+            constraint_loss_weight=args.constraint_loss_weight,
+        )
         metrics = evaluate_model(model, val_loader, device)
         epoch_record = {
             "epoch": epoch,
-            "train_loss": train_loss,
+            **train_stats,
             **metrics,
         }
         epoch_history.append(epoch_record)
         print(
-            "epoch={epoch} train_loss={train_loss:.4f} blank_cell_acc={blank_cell_accuracy:.4f} "
+            "epoch={epoch} train_loss={train_loss:.4f} train_ce_loss={train_ce_loss:.4f} "
+            "train_constraint_loss={train_constraint_loss:.4f} blank_cell_acc={blank_cell_accuracy:.4f} "
             "board_solved_rate={board_solved_rate:.4f} valid_board_rate={valid_board_rate:.4f}".format(
-                epoch=epoch,
-                train_loss=train_loss,
-                **metrics,
+                **epoch_record,
             )
         )
 
@@ -276,9 +305,12 @@ def train_one_epoch(
     dataloader: DataLoader[Any],
     optimizer: torch.optim.Optimizer,
     device: torch.device,
-) -> float:
+    constraint_loss_weight: float = 0.0,
+) -> dict[str, float]:
     model.train()
     total_loss = 0.0
+    total_ce_loss = 0.0
+    total_constraint_loss = 0.0
     total_batches = 0
 
     for batch in dataloader:
@@ -289,14 +321,24 @@ def train_one_epoch(
 
         optimizer.zero_grad()
         logits = model(digits, givens)
-        loss = masked_cross_entropy(logits, targets, blank_mask)
+        ce_loss = masked_cross_entropy(logits, targets, blank_mask)
+        constraint_loss = logits.new_tensor(0.0)
+        if constraint_loss_weight > 0.0:
+            constraint_loss = constraint_consistency_penalty(logits, digits)
+        loss = ce_loss + constraint_loss_weight * constraint_loss
         loss.backward()
         optimizer.step()
 
         total_loss += loss.item()
+        total_ce_loss += ce_loss.item()
+        total_constraint_loss += constraint_loss.item()
         total_batches += 1
 
-    return total_loss / total_batches
+    return {
+        "train_loss": total_loss / total_batches,
+        "train_ce_loss": total_ce_loss / total_batches,
+        "train_constraint_loss": total_constraint_loss / total_batches,
+    }
 
 
 def masked_cross_entropy(
@@ -313,6 +355,21 @@ def masked_cross_entropy(
     if active_losses.numel() == 0:
         raise ValueError("blank_mask must include at least one trainable cell.")
     return active_losses.mean()
+
+
+def constraint_consistency_penalty(logits: torch.Tensor, digits: torch.Tensor) -> torch.Tensor:
+    probabilities = torch.softmax(logits, dim=-1)
+    given_mask = digits != 0
+    if given_mask.any():
+        given_classes = digits.clamp(min=1) - 1
+        given_one_hot = F.one_hot(given_classes, num_classes=9).to(dtype=probabilities.dtype)
+        full_probabilities = torch.where(given_mask.unsqueeze(-1), given_one_hot, probabilities)
+    else:
+        full_probabilities = probabilities
+
+    unit_probabilities = full_probabilities[:, UNIT_INDICES.to(logits.device), :]
+    digit_totals = unit_probabilities.sum(dim=2)
+    return (digit_totals - 1.0).pow(2).mean()
 
 
 def is_better_epoch(candidate: dict[str, float], current_best: dict[str, float] | None) -> bool:
@@ -351,3 +408,4 @@ def save_checkpoint(
 
 if __name__ == "__main__":
     main()
+

@@ -117,10 +117,18 @@ Train the Transformer baseline:
 python -m ai.train --dataset data\manifests\train.jsonl --val-dataset data\manifests\val.jsonl --model transformer --transformer-embed-dim 128 --transformer-num-heads 8 --transformer-depth 4 --transformer-ff-dim 512 --epochs 20 --batch-size 32 --early-stopping-patience 5 --checkpoint ai\checkpoints\transformer.pt --best-checkpoint ai\checkpoints\transformer.best.pt --metrics-output ai\reports\transformer_metrics.json
 ```
 
+Train with an additional constraint penalty:
+
+```powershell
+python -m ai.train --dataset data\manifests_large\train.jsonl --val-dataset data\manifests_large\val.jsonl --model transformer --transformer-embed-dim 128 --transformer-num-heads 8 --transformer-depth 4 --transformer-ff-dim 512 --epochs 20 --batch-size 32 --early-stopping-patience 5 --constraint-loss-weight 0.05 --checkpoint ai\checkpoints\transformer_large_constraint.pt --best-checkpoint ai\checkpoints\transformer_large_constraint.best.pt --metrics-output ai\reports\transformer_large_constraint_metrics.json
+```
+
 Training behavior:
 - `ai.train` now saves both the final checkpoint and the best-validation checkpoint.
 - Early stopping is driven by validation `board_solved_rate` first, then `mean_total_conflicts`, then `blank_cell_accuracy`.
 - The training config stored in checkpoints now records both requested sizes and resolved dataset sizes.
+- `--constraint-loss-weight` adds a soft Sudoku consistency penalty on top of the blank-cell cross-entropy loss.
+- Training reports now include `train_ce_loss` and `train_constraint_loss` separately so the two objectives can be traced independently.
 
 Evaluate a checkpoint on the fixed test manifest with raw argmax decoding:
 
@@ -143,7 +151,7 @@ python -m ai.eval --checkpoint ai\checkpoints\transformer_large.pt --dataset dat
 Run single-puzzle inference from a file:
 
 ```powershell
-python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file puzzles\puzzle_001.txt --decode-mode iterative
+python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file data\dataset\train\puzzle_00001.txt --decode-mode iterative
 ```
 
 Run single-puzzle inference from an inline puzzle string:
@@ -155,7 +163,7 @@ python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt
 Run single-puzzle inference from standard input:
 
 ```powershell
-Get-Content puzzles\puzzle_001.txt | python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --stdin --decode-mode iterative
+Get-Content data\dataset\train\puzzle_00001.txt | python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --stdin --decode-mode iterative
 ```
 
 `ai.infer` prints the original puzzle, optional raw argmax prediction, decoded prediction, and whether the final board is structurally valid.
@@ -224,5 +232,6 @@ A good order for this repo is:
 6. Run `ai.eval` on the fixed test split and inspect the conflict metrics.
 7. Compare `argmax`, `iterative`, and `solver_guided` decode modes to separate raw prediction quality, non-solver refinement, and exact-solver repair.
 8. Run `ai.infer` on a single puzzle file when you want an interactive checkpoint sanity check.
-9. Render the training and evaluation reports with `ai.plot_results`.
-10. Use `analyze_errors.py` to inspect failure modes.
+9. Try `--constraint-loss-weight` if you want to bias training toward lower structural conflict.
+10. Render the training and evaluation reports with `ai.plot_results`.
+11. Use `analyze_errors.py` to inspect failure modes.

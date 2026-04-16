@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 import torch
+import torch.nn.functional as F
 
 from ai.checkpoint import load_model_from_checkpoint
 from ai.dataset import SudokuDataset, SudokuFileDataset, flat_to_board, sample_to_record
@@ -11,7 +12,7 @@ from ai.decode import compose_completed_boards, decode_completed_boards
 from ai.eval import evaluate_model, main as eval_main, summarize_board_violations
 from ai.model import SudokuMLP, SudokuTransformer
 from ai.plot_results import main as plot_main
-from ai.train import main as train_main
+from ai.train import constraint_consistency_penalty, main as train_main
 from solver import export_puzzle_dataset, solve_board_with_scores
 
 
@@ -166,6 +167,26 @@ class AITests(unittest.TestCase):
         self.assertGreaterEqual(decode_iteration_counts[0], 2)
         self.assertGreater(postprocess_change_counts[0], 0)
 
+    def test_constraint_consistency_penalty_is_zero_for_valid_completed_board(self) -> None:
+        dataset = SudokuDataset(size=1, blanks=10, seed=7)
+        sample = dataset[0]
+        solution_digits = (sample["targets"] + 1).unsqueeze(0)
+        logits = torch.zeros((1, 81, 9), dtype=torch.float32)
+
+        penalty = constraint_consistency_penalty(logits, solution_digits)
+
+        self.assertAlmostEqual(penalty.item(), 0.0, places=6)
+
+    def test_constraint_consistency_penalty_is_positive_for_duplicate_prediction(self) -> None:
+        digits = torch.zeros((1, 81), dtype=torch.long)
+        logits = torch.full((1, 81, 9), -5.0, dtype=torch.float32)
+        duplicate_classes = torch.tensor([0] * 9 + [1] * 72, dtype=torch.long)
+        logits[0, torch.arange(81), duplicate_classes] = 5.0
+
+        penalty = constraint_consistency_penalty(logits, digits)
+
+        self.assertGreater(penalty.item(), 0.0)
+
     def test_solve_board_with_scores_validates_shape(self) -> None:
         with self.assertRaisesRegex(ValueError, "81 score vectors"):
             solve_board_with_scores([[0] * 9 for _ in range(9)], [[0.0] * 9])
@@ -281,6 +302,8 @@ class AITests(unittest.TestCase):
                     "2",
                     "--early-stopping-patience",
                     "1",
+                    "--constraint-loss-weight",
+                    "0.1",
                     "--checkpoint",
                     str(checkpoint_path),
                     "--best-checkpoint",
@@ -296,9 +319,11 @@ class AITests(unittest.TestCase):
             self.assertTrue(best_checkpoint_path.exists())
             self.assertGreaterEqual(len(metrics["epochs"]), 1)
             self.assertIn("best_epoch_metrics", metrics)
+            self.assertIn("train_constraint_loss", metrics["epochs"][0])
             self.assertEqual(payload["config"]["resolved_train_size"], 6)
             self.assertEqual(payload["config"]["resolved_val_size"], 2)
             self.assertEqual(payload["config"]["best_checkpoint"], str(best_checkpoint_path))
+            self.assertEqual(payload["config"]["constraint_loss_weight"], 0.1)
 
     def test_train_main_supports_transformer_model(self) -> None:
         dataset = SudokuDataset(size=8, blanks=10, seed=7)
@@ -333,6 +358,8 @@ class AITests(unittest.TestCase):
                     "64",
                     "--dropout",
                     "0.0",
+                    "--constraint-loss-weight",
+                    "0.05",
                     "--checkpoint",
                     str(checkpoint_path),
                 ]
@@ -341,6 +368,7 @@ class AITests(unittest.TestCase):
             payload = torch.load(checkpoint_path, map_location=torch.device("cpu"))
             self.assertEqual(payload["model_type"], "transformer")
             self.assertIn("best_epoch", payload["config"])
+            self.assertEqual(payload["config"]["constraint_loss_weight"], 0.05)
 
     def test_train_main_supports_separate_val_dataset(self) -> None:
         train_dataset = SudokuDataset(size=6, blanks=10, seed=7)

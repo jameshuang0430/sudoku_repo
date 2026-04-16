@@ -353,3 +353,83 @@
 - Commit the single-puzzle inference segment.
 - If desired, add JSON output mode so `ai.infer` can feed other tooling without parsing terminal text.
 - Return to the unfinished constraint-aware training work in a separate clean segment.
+
+## 2026-04-17 Constraint-Aware Training Segment
+
+### Current Progress
+- Added optional constraint-aware training via `--constraint-loss-weight`.
+- Training now logs `train_ce_loss` and `train_constraint_loss` separately.
+- Added tests for the new consistency penalty and for constraint-loss metadata flowing into checkpoints and metrics.
+- Ran a formal large-scale constraint-aware Transformer experiment on the fixed large split.
+
+### Issues Encountered
+- A small logging bug in the first training-loop revision passed `epoch` twice into `str.format()`, which broke the training-path tests.
+- The first real constraint-aware experiment improved structural conflict slightly under iterative decoding, but underperformed the unconstrained large-scale baseline on solved-board rate.
+
+### Resolution
+- Fixed the duplicated `epoch` formatting bug and re-ran the full test suite.
+- Preserved the constraint-aware run as a comparison point rather than over-tuning the weight immediately.
+- Documented the new training flag and separated the constraint-loss statistics in the reports so future sweeps can be compared cleanly.
+
+### Completed Segment
+- Constraint-aware training is now implemented, test-covered, documented, and experimentally exercised.
+- The repo can now compare unconstrained and constraint-aware large-scale Transformer runs under the same evaluation pipeline.
+
+### Verification
+- `python -m unittest discover -s tests -v`
+- Result: `45` tests passed.
+
+### Large Constraint-Aware Experiment
+- Command:
+  - `python -m ai.train --dataset data\manifests_large\train.jsonl --val-dataset data\manifests_large\val.jsonl --model transformer --transformer-embed-dim 128 --transformer-num-heads 8 --transformer-depth 4 --transformer-ff-dim 512 --epochs 20 --batch-size 32 --early-stopping-patience 5 --constraint-loss-weight 0.05 --checkpoint ai\checkpoints\transformer_large_constraint.pt --best-checkpoint ai\checkpoints\transformer_large_constraint.best.pt --metrics-output ai\reports\transformer_large_constraint_metrics.json`
+- Best epoch: `8`
+- Stopped early: `true`
+- Validation metrics at best epoch:
+  - `blank_cell_accuracy=0.8048`
+  - `board_solved_rate=0.0020`
+  - `valid_board_rate=0.0020`
+  - `mean_total_conflicts=15.70`
+
+### Test Evaluation Summary
+- Raw argmax:
+  - `blank_cell_accuracy=0.7975`
+  - `board_solved_rate=0.0000`
+  - `valid_board_rate=0.0000`
+  - `mean_mismatch_count=8.10`
+  - `mean_total_conflicts=16.19`
+- Iterative decoding:
+  - `blank_cell_accuracy=0.8825`
+  - `board_solved_rate=0.2129`
+  - `valid_board_rate=0.2129`
+  - `mean_mismatch_count=4.70`
+  - `mean_total_conflicts=3.38`
+  - `mean_postprocess_change_count=6.96`
+  - `mean_decode_iteration_count=4.73`
+
+### Comparison To Current Large Baseline
+- Current unconstrained large raw argmax test:
+  - `blank_cell_accuracy=0.8448`
+  - `board_solved_rate=0.0059`
+  - `mean_total_conflicts=11.68`
+- Constraint-aware large raw argmax test:
+  - `blank_cell_accuracy=0.7975`
+  - `board_solved_rate=0.0000`
+  - `mean_total_conflicts=16.19`
+- Current unconstrained large iterative test:
+  - `blank_cell_accuracy=0.9063`
+  - `board_solved_rate=0.2969`
+  - `mean_total_conflicts=3.50`
+- Constraint-aware large iterative test:
+  - `blank_cell_accuracy=0.8825`
+  - `board_solved_rate=0.2129`
+  - `mean_total_conflicts=3.38`
+
+### Interpretation
+- This first constraint-aware run did not beat the unconstrained large baseline overall.
+- It slightly improved iterative conflict totals, but it lost too much on solved-board rate and raw accuracy.
+- The current conclusion is that `constraint_loss_weight=0.05` is too blunt for this setup, not that constraint-aware training is fundamentally useless.
+
+### Next Steps
+- Commit the constraint-aware training segment.
+- If this direction is worth pursuing, run a smaller weight sweep such as `0.005`, `0.01`, and `0.02` instead of increasing the penalty further.
+- Keep `ai\checkpoints\transformer_large_current.best.pt` as the default best-performing large checkpoint for now.
