@@ -113,3 +113,44 @@
 - Commit the hybrid decoding segment.
 - Decide whether to keep solver-guided decoding as an evaluation-only upper bound or expose it as the default inference path.
 - If raw model quality still matters most, move next to iterative decoding or constraint-aware training instead of relying only on solver repair.
+
+## 2026-04-16 Iterative Decoding Segment
+
+### Current Progress
+- Added `iterative` as a third decode mode beside `argmax` and `solver_guided`.
+- Refactored decoding so the evaluation and error-analysis tools can re-run the model during inference instead of only consuming one fixed logits tensor.
+- Added `mean_decode_iteration_count` so iterative decoding reports how many refinement rounds were used on average.
+- Verified the iterative path with new tests plus a real run on the large Transformer checkpoint.
+
+### Issues Encountered
+- The first version of the new test expected iterative decoding to keep `postprocess_change_count=0`, but the dummy model was intentionally changing low-confidence blanks across rounds, so that expectation was wrong.
+- A parallel `plot_results` run attempted to open the iterative report before the JSON file had finished writing.
+
+### Resolution
+- Corrected the test to check the behavior that actually matters: the board is solved correctly and iterative decoding takes multiple rounds.
+- Switched the report generation and plotting back to serial execution when read-after-write ordering matters.
+- Kept `mean_postprocess_change_count` and added `mean_decode_iteration_count` so iterative decoding can be measured both as output drift from raw argmax and as refinement depth.
+
+### Completed Segment
+- Iterative decoding is now implemented, test-covered, documented, and measurable.
+- The repo can now compare three inference modes on the same checkpoint: raw argmax, non-solver iterative refinement, and exact solver repair.
+
+### Large Transformer Iterative Evaluation
+- Command:
+  - `python -m ai.eval --checkpoint ai\checkpoints\transformer_large.pt --dataset data\manifests_large\test.jsonl --batch-size 32 --decode-mode iterative --report ai\reports\transformer_large_iterative_test_metrics.json`
+- Results:
+  - `blank_cell_accuracy=0.8866`
+  - `board_solved_rate=0.2480`
+  - `valid_board_rate=0.2480`
+  - `mean_mismatch_count=4.54`
+  - `mean_total_conflicts=3.66`
+  - `mean_postprocess_change_count=6.55`
+  - `mean_decode_iteration_count=4.58`
+- Interpretation:
+  - This is a substantial improvement over raw argmax on the same checkpoint, which had `valid_board_rate=0.0000` and `mean_total_conflicts=14.94`.
+  - Iterative decoding does not match the exact-solver upper bound, but it proves that a large part of the remaining quality gap is in inference behavior rather than only in the learned weights.
+
+### Next Steps
+- Commit the iterative decoding segment.
+- Decide whether to expose iterative decoding as the default non-solver inference path.
+- If the next goal is to raise raw-model quality further, move next to constraint-aware training or checkpoint-metadata cleanup.

@@ -118,7 +118,13 @@ python -m ai.train --dataset data\manifests\train.jsonl --val-dataset data\manif
 Evaluate a checkpoint on the fixed test manifest with raw argmax decoding:
 
 ```powershell
-python -m ai.eval --checkpoint ai\checkpoints\from_split_export.pt --dataset data\manifests\test.jsonl --batch-size 32 --report ai\reports\test_metrics.json
+python -m ai.eval --checkpoint ai\checkpoints\from_split_export.pt --dataset data\manifests\test.jsonl --batch-size 32 --decode-mode argmax --report ai\reports\test_metrics.json
+```
+
+Evaluate the same checkpoint with iterative decoding:
+
+```powershell
+python -m ai.eval --checkpoint ai\checkpoints\transformer_large.pt --dataset data\manifests_large\test.jsonl --batch-size 32 --decode-mode iterative --report ai\reports\transformer_large_iterative_test_metrics.json
 ```
 
 Evaluate the same checkpoint with solver-guided post-processing:
@@ -127,6 +133,11 @@ Evaluate the same checkpoint with solver-guided post-processing:
 python -m ai.eval --checkpoint ai\checkpoints\transformer_large.pt --dataset data\manifests_large\test.jsonl --batch-size 32 --decode-mode solver_guided --report ai\reports\transformer_large_solver_guided_test_metrics.json
 ```
 
+Decode-mode interpretation:
+- `argmax`: raw model output with no repair.
+- `iterative`: re-runs the model while filling confident cells round by round, without using the exact solver.
+- `solver_guided`: uses the exact solver as a post-processor, so treat it as an upper-bound reference rather than raw model quality.
+
 `ai.eval` now reports not only accuracy and valid-board rate, but also:
 - `mean_mismatch_count`
 - `mean_row_conflicts`
@@ -134,18 +145,21 @@ python -m ai.eval --checkpoint ai\checkpoints\transformer_large.pt --dataset dat
 - `mean_box_conflicts`
 - `mean_total_conflicts`
 - `mean_postprocess_change_count`
+- `mean_decode_iteration_count`
 
-`mean_postprocess_change_count` is especially useful for `--decode-mode solver_guided`: it shows how many blank-cell argmax guesses the solver had to override per board on average.
+Interpretation notes:
+- `mean_postprocess_change_count` shows how many blank-cell raw argmax guesses were overridden by the selected decode path on average.
+- `mean_decode_iteration_count` is mainly useful for `--decode-mode iterative`, where it shows how many refinement rounds were needed per board on average.
 
 Render the saved reports to PNG images:
 
 ```powershell
 python -m ai.plot_results --input ai\reports\from_split_export_metrics.json --output ai\reports\from_split_export_metrics.png
-python -m ai.plot_results --input ai\reports\test_metrics.json --output ai\reports\test_metrics.png
+python -m ai.plot_results --input ai\reports\transformer_large_iterative_test_metrics.json --output ai\reports\transformer_large_iterative_test_metrics.png
 python -m ai.plot_results --input ai\reports\transformer_large_solver_guided_test_metrics.json --output ai\reports\transformer_large_solver_guided_test_metrics.png
 ```
 
-Evaluation PNGs now visualize both the rate-style metrics and the conflict-style metrics, including post-processing changes when present.
+Evaluation PNGs now visualize both the rate-style metrics and the conflict-style metrics, including decode-iteration counts and post-processing changes when present.
 
 Export generated data directly to JSONL:
 
@@ -157,6 +171,12 @@ Analyze model failures on generated samples:
 
 ```powershell
 python -m ai.analyze_errors --checkpoint ai/checkpoints/smoke.pt --dataset-size 16 --limit 2
+```
+
+Analyze a fixed manifest with iterative decoding:
+
+```powershell
+python -m ai.analyze_errors --checkpoint ai/checkpoints/transformer_large.pt --dataset data/manifests_large/test.jsonl --decode-mode iterative --limit 2
 ```
 
 Analyze a fixed manifest with solver-guided decoding:
@@ -175,6 +195,6 @@ A good order for this repo is:
 4. Train the MLP baseline and save per-epoch metrics.
 5. Train the Transformer baseline on the same splits.
 6. Run `ai.eval` on the fixed test split and inspect the conflict metrics.
-7. Compare `argmax` and `solver_guided` decode modes to separate raw prediction quality from legality repair.
+7. Compare `argmax`, `iterative`, and `solver_guided` decode modes to separate raw prediction quality, non-solver refinement, and exact-solver repair.
 8. Render the training and evaluation reports with `ai.plot_results`.
 9. Use `analyze_errors.py` to inspect failure modes.

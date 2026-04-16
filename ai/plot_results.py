@@ -26,6 +26,7 @@ EVALUATION_CONFLICT_KEYS = [
     ("mean_box_conflicts", "Mean Box Conflicts"),
     ("mean_total_conflicts", "Mean Total Conflicts"),
     ("mean_postprocess_change_count", "Mean Postprocess Change Count"),
+    ("mean_decode_iteration_count", "Mean Decode Iteration Count"),
 ]
 
 
@@ -88,7 +89,7 @@ def plot_evaluation_report(payload: dict[str, object], output_path: Path, title:
     conflict_labels = [label for key, label in EVALUATION_CONFLICT_KEYS if key in metrics]
 
     if conflict_values:
-        figure, axes = plt.subplots(1, 2, figsize=(13, 5))
+        figure, axes = plt.subplots(1, 2, figsize=(14, 5))
         rate_axis, conflict_axis = axes
     else:
         figure, rate_axis = plt.subplots(figsize=(8, 5))

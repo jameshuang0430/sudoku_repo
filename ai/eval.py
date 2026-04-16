@@ -12,7 +12,7 @@ from solver import validate_board
 
 from .checkpoint import load_model_from_checkpoint
 from .dataset import SudokuDataset, SudokuFileDataset
-from .decode import compose_completed_boards, decode_completed_boards
+from .decode import decode_completed_boards
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -23,7 +23,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--blanks", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=7)
-    parser.add_argument("--decode-mode", choices=["argmax", "solver_guided"], default="argmax")
+    parser.add_argument("--decode-mode", choices=["argmax", "iterative", "solver_guided"], default="argmax")
     parser.add_argument("--report", type=Path)
     return parser.parse_args(argv)
 
@@ -42,7 +42,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         "checkpoint={checkpoint} eval_source={eval_source} decode_mode={decode_mode} train_seed={train_seed} "
         "blank_cell_acc={blank_cell_accuracy:.4f} board_solved_rate={board_solved_rate:.4f} "
         "valid_board_rate={valid_board_rate:.4f} mean_mismatch_count={mean_mismatch_count:.2f} "
-        "mean_total_conflicts={mean_total_conflicts:.2f} mean_postprocess_change_count={mean_postprocess_change_count:.2f}".format(
+        "mean_total_conflicts={mean_total_conflicts:.2f} mean_postprocess_change_count={mean_postprocess_change_count:.2f} "
+        "mean_decode_iteration_count={mean_decode_iteration_count:.2f}".format(
             checkpoint=args.checkpoint,
             eval_source=evaluation_source,
             decode_mode=args.decode_mode,
@@ -98,6 +99,7 @@ def evaluate_model(
     total_box_conflicts = 0
     total_constraint_conflicts = 0
     total_postprocess_change_count = 0
+    total_decode_iteration_count = 0
 
     with torch.no_grad():
         for batch in dataloader:
@@ -106,10 +108,13 @@ def evaluate_model(
             targets = batch["targets"].to(device)
 
             logits = model(digits, givens)
-            completed_boards, postprocess_change_counts = decode_completed_boards(
+            completed_boards, postprocess_change_counts, decode_iteration_counts = decode_completed_boards(
+                model,
                 digits,
-                logits,
+                givens,
+                device,
                 mode=decode_mode,
+                initial_logits=logits,
             )
             blank_mask = digits.cpu() == 0
             target_boards = targets.cpu() + 1
@@ -117,6 +122,7 @@ def evaluate_model(
             correct_blank_cells += ((completed_boards == target_boards) & blank_mask).sum().item()
             total_blank_cells += blank_mask.sum().item()
             total_postprocess_change_count += sum(postprocess_change_counts)
+            total_decode_iteration_count += sum(decode_iteration_counts)
 
             for completed_board, target_board in zip(completed_boards, target_boards):
                 total_boards += 1
@@ -157,6 +163,7 @@ def evaluate_model(
         "mean_box_conflicts": total_box_conflicts / total_boards if total_boards else 0.0,
         "mean_total_conflicts": total_constraint_conflicts / total_boards if total_boards else 0.0,
         "mean_postprocess_change_count": total_postprocess_change_count / total_boards if total_boards else 0.0,
+        "mean_decode_iteration_count": total_decode_iteration_count / total_boards if total_boards else 0.0,
     }
 
 

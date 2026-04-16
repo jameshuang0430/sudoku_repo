@@ -22,7 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--blanks", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=7)
-    parser.add_argument("--decode-mode", choices=["argmax", "solver_guided"], default="argmax")
+    parser.add_argument("--decode-mode", choices=["argmax", "iterative", "solver_guided"], default="argmax")
     parser.add_argument("--limit", type=int, default=3)
     parser.add_argument("--report", type=Path)
     return parser.parse_args()
@@ -43,7 +43,7 @@ def main() -> None:
     print(
         "checkpoint={checkpoint} eval_source={eval_source} decode_mode={decode_mode} train_seed={train_seed} "
         "blank_cell_acc={blank_cell_accuracy:.4f} board_solved_rate={board_solved_rate:.4f} "
-        "valid_board_rate={valid_board_rate:.4f}".format(
+        "valid_board_rate={valid_board_rate:.4f} mean_decode_iteration_count={mean_decode_iteration_count:.2f}".format(
             checkpoint=args.checkpoint,
             eval_source=evaluation_source,
             decode_mode=args.decode_mode,
@@ -58,7 +58,8 @@ def main() -> None:
         for case in error_cases:
             print(
                 f"case_index={case['index']} mismatch_count={case['mismatch_count']} "
-                f"postprocess_change_count={case['postprocess_change_count']}"
+                f"postprocess_change_count={case['postprocess_change_count']} "
+                f"decode_iteration_count={case['decode_iteration_count']}"
             )
             print("puzzle:")
             print(format_board(case["puzzle"]))
@@ -123,15 +124,23 @@ def collect_error_cases(
             logits = model(digits, givens)
             raw_predictions = logits.argmax(dim=-1)
             raw_completed_boards = compose_completed_boards(digits, raw_predictions)
-            completed_boards, postprocess_change_counts = decode_completed_boards(digits, logits, mode=decode_mode)
+            completed_boards, postprocess_change_counts, decode_iteration_counts = decode_completed_boards(
+                model,
+                digits,
+                givens,
+                device,
+                mode=decode_mode,
+                initial_logits=logits,
+            )
             target_boards = targets.cpu() + 1
 
-            for original_digits, raw_board, predicted_board, target_board, postprocess_change_count in zip(
+            for original_digits, raw_board, predicted_board, target_board, postprocess_change_count, decode_iteration_count in zip(
                 batch["digits"],
                 raw_completed_boards,
                 completed_boards,
                 target_boards,
                 postprocess_change_counts,
+                decode_iteration_counts,
             ):
                 if torch.equal(predicted_board, target_board):
                     sample_index += 1
@@ -150,6 +159,7 @@ def collect_error_cases(
                         "mismatch_count": len(mismatch_positions),
                         "mismatch_positions": mismatch_positions,
                         "postprocess_change_count": postprocess_change_count,
+                        "decode_iteration_count": decode_iteration_count,
                         "puzzle": flat_to_board(original_digits.tolist()),
                         "raw_prediction": flat_to_board(raw_board.tolist()),
                         "prediction": flat_to_board(predicted_board.tolist()),

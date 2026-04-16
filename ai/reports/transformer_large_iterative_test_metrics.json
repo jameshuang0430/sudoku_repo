@@ -1,0 +1,35 @@
+{
+  "metrics": {
+    "blank_cell_accuracy": 0.88662109375,
+    "board_solved_rate": 0.248046875,
+    "valid_board_rate": 0.248046875,
+    "mean_mismatch_count": 4.53515625,
+    "mean_row_conflicts": 1.29296875,
+    "mean_col_conflicts": 1.59375,
+    "mean_box_conflicts": 0.7734375,
+    "mean_total_conflicts": 3.66015625,
+    "mean_postprocess_change_count": 6.546875,
+    "mean_decode_iteration_count": 4.576171875
+  },
+  "training_config": {
+    "train_size": 512,
+    "val_size": 128,
+    "blanks": 40,
+    "dataset": "data\\manifests_large\\train.jsonl",
+    "val_dataset": "data\\manifests_large\\val.jsonl",
+    "model_type": "transformer",
+    "batch_size": 32,
+    "epochs": 10,
+    "learning_rate": 0.001,
+    "seed": 7
+  },
+  "evaluation_config": {
+    "checkpoint": "ai\\checkpoints\\transformer_large.pt",
+    "dataset": "data\\manifests_large\\test.jsonl",
+    "dataset_size": 32,
+    "blanks": 40,
+    "batch_size": 32,
+    "seed": 7,
+    "decode_mode": "iterative"
+  }
+}

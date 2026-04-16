@@ -103,6 +103,7 @@ class AITests(unittest.TestCase):
         dataset = SudokuDataset(size=1, blanks=10, seed=7)
         sample = dataset[0]
         digits = sample["digits"].unsqueeze(0)
+        givens = sample["givens"].unsqueeze(0)
         targets = sample["targets"]
         logits = torch.full((1, 81, 9), -5.0, dtype=torch.float32)
 
@@ -116,10 +117,54 @@ class AITests(unittest.TestCase):
         logits[0, wrong_index, correct_class] = 1.0
         logits[0, wrong_index, wrong_class] = 9.0
 
-        completed, postprocess_change_counts = decode_completed_boards(digits, logits, mode="solver_guided")
+        class StaticModel(torch.nn.Module):
+            def forward(self, digits: torch.Tensor, givens: torch.Tensor) -> torch.Tensor:
+                return logits
+
+        completed, postprocess_change_counts, decode_iteration_counts = decode_completed_boards(
+            StaticModel(),
+            digits,
+            givens,
+            torch.device("cpu"),
+            mode="solver_guided",
+            initial_logits=logits,
+        )
 
         self.assertEqual(completed[0].tolist(), (targets + 1).tolist())
         self.assertEqual(postprocess_change_counts, [1])
+        self.assertEqual(decode_iteration_counts, [0])
+
+    def test_decode_completed_boards_iterative_uses_multiple_rounds(self) -> None:
+        dataset = SudokuDataset(size=1, blanks=10, seed=7)
+        sample = dataset[0]
+        digits = sample["digits"].unsqueeze(0)
+        givens = sample["givens"].unsqueeze(0)
+        targets = sample["targets"]
+
+        class TwoStageOracleModel(torch.nn.Module):
+            def forward(self, digits: torch.Tensor, givens: torch.Tensor) -> torch.Tensor:
+                logits = torch.zeros((digits.size(0), 81, 9), dtype=torch.float32, device=digits.device)
+                for batch_index in range(digits.size(0)):
+                    blank_indices = (digits[batch_index] == 0).nonzero(as_tuple=False).flatten().tolist()
+                    for blank_offset, index in enumerate(blank_indices):
+                        target_value = int(targets[index].item())
+                        if len(blank_indices) > 1 and blank_offset > 0:
+                            logits[batch_index, index, :] = 0.0
+                        else:
+                            logits[batch_index, index, target_value] = 6.0
+                return logits
+
+        completed, postprocess_change_counts, decode_iteration_counts = decode_completed_boards(
+            TwoStageOracleModel(),
+            digits,
+            givens,
+            torch.device("cpu"),
+            mode="iterative",
+        )
+
+        self.assertEqual(completed[0].tolist(), (targets + 1).tolist())
+        self.assertGreaterEqual(decode_iteration_counts[0], 2)
+        self.assertGreater(postprocess_change_counts[0], 0)
 
     def test_solve_board_with_scores_validates_shape(self) -> None:
         with self.assertRaisesRegex(ValueError, "81 score vectors"):
@@ -152,17 +197,18 @@ class AITests(unittest.TestCase):
     def test_evaluate_model_reports_mismatch_and_conflict_metrics(self) -> None:
         class FixedModel(torch.nn.Module):
             def forward(self, digits: torch.Tensor, givens: torch.Tensor) -> torch.Tensor:
-                logits = torch.zeros((digits.size(0), 81, 9), dtype=torch.float32)
+                logits = torch.zeros((digits.size(0), 81, 9), dtype=torch.float32, device=digits.device)
                 logits[:, :, 0] = 1.0
                 return logits
 
         dataset = SudokuDataset(size=2, blanks=10, seed=7)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False)
-        metrics = evaluate_model(FixedModel(), dataloader, torch.device("cpu"))
+        metrics = evaluate_model(FixedModel(), dataloader, torch.device("cpu"), decode_mode="iterative")
 
         self.assertIn("mean_mismatch_count", metrics)
         self.assertIn("mean_total_conflicts", metrics)
         self.assertIn("mean_postprocess_change_count", metrics)
+        self.assertIn("mean_decode_iteration_count", metrics)
         self.assertGreater(metrics["mean_mismatch_count"], 0.0)
         self.assertGreaterEqual(metrics["mean_total_conflicts"], 0.0)
 
@@ -351,7 +397,7 @@ class AITests(unittest.TestCase):
                     "--batch-size",
                     "2",
                     "--decode-mode",
-                    "solver_guided",
+                    "iterative",
                     "--report",
                     str(report_path),
                 ]
@@ -362,8 +408,9 @@ class AITests(unittest.TestCase):
         self.assertIn("metrics", report)
         self.assertIn("mean_total_conflicts", report["metrics"])
         self.assertIn("mean_postprocess_change_count", report["metrics"])
+        self.assertIn("mean_decode_iteration_count", report["metrics"])
         self.assertEqual(report["evaluation_config"]["dataset"], str(dataset_path))
-        self.assertEqual(report["evaluation_config"]["decode_mode"], "solver_guided")
+        self.assertEqual(report["evaluation_config"]["decode_mode"], "iterative")
 
     def test_plot_main_supports_training_report(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -411,6 +458,7 @@ class AITests(unittest.TestCase):
                             "board_solved_rate": 0.0,
                             "valid_board_rate": 0.03,
                             "mean_postprocess_change_count": 1.5,
+                            "mean_decode_iteration_count": 2.0,
                         }
                     },
                     indent=2,
@@ -430,3 +478,4 @@ class AITests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
