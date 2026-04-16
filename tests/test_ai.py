@@ -262,6 +262,7 @@ class AITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             dataset_path = Path(temp_dir) / "dataset.jsonl"
             checkpoint_path = Path(temp_dir) / "checkpoint.pt"
+            best_checkpoint_path = Path(temp_dir) / "best.pt"
             metrics_path = Path(temp_dir) / "metrics.json"
             with dataset_path.open("w", encoding="utf-8") as handle:
                 for index in range(len(dataset)):
@@ -275,19 +276,29 @@ class AITests(unittest.TestCase):
                     "--val-size",
                     "2",
                     "--epochs",
-                    "1",
+                    "3",
                     "--batch-size",
                     "2",
+                    "--early-stopping-patience",
+                    "1",
                     "--checkpoint",
                     str(checkpoint_path),
+                    "--best-checkpoint",
+                    str(best_checkpoint_path),
                     "--metrics-output",
                     str(metrics_path),
                 ]
             )
 
             metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+            payload = torch.load(checkpoint_path, map_location=torch.device("cpu"))
             self.assertTrue(checkpoint_path.exists())
-            self.assertEqual(len(metrics["epochs"]), 1)
+            self.assertTrue(best_checkpoint_path.exists())
+            self.assertGreaterEqual(len(metrics["epochs"]), 1)
+            self.assertIn("best_epoch_metrics", metrics)
+            self.assertEqual(payload["config"]["resolved_train_size"], 6)
+            self.assertEqual(payload["config"]["resolved_val_size"], 2)
+            self.assertEqual(payload["config"]["best_checkpoint"], str(best_checkpoint_path))
 
     def test_train_main_supports_transformer_model(self) -> None:
         dataset = SudokuDataset(size=8, blanks=10, seed=7)
@@ -329,6 +340,7 @@ class AITests(unittest.TestCase):
 
             payload = torch.load(checkpoint_path, map_location=torch.device("cpu"))
             self.assertEqual(payload["model_type"], "transformer")
+            self.assertIn("best_epoch", payload["config"])
 
     def test_train_main_supports_separate_val_dataset(self) -> None:
         train_dataset = SudokuDataset(size=6, blanks=10, seed=7)
@@ -364,7 +376,10 @@ class AITests(unittest.TestCase):
                 ]
             )
 
+            payload = torch.load(checkpoint_path, map_location=torch.device("cpu"))
             self.assertTrue(checkpoint_path.exists())
+            self.assertEqual(payload["config"]["resolved_train_size"], 6)
+            self.assertEqual(payload["config"]["resolved_val_size"], 2)
 
     def test_eval_main_supports_dataset_file(self) -> None:
         dataset = SudokuDataset(size=4, blanks=10, seed=7)
@@ -478,4 +493,3 @@ class AITests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -100,20 +100,25 @@ python -m ai.train --epochs 5 --train-size 512 --val-size 128 --batch-size 32 --
 Train from one exported JSONL dataset with an internal split and save epoch metrics:
 
 ```powershell
-python -m ai.train --dataset data\puzzles.jsonl --val-size 128 --epochs 5 --batch-size 32 --checkpoint ai\checkpoints\from_export.pt --metrics-output ai\reports\from_export_metrics.json
+python -m ai.train --dataset data\puzzles.jsonl --val-size 128 --epochs 20 --batch-size 32 --early-stopping-patience 5 --checkpoint ai\checkpoints\from_export.pt --best-checkpoint ai\checkpoints\from_export.best.pt --metrics-output ai\reports\from_export_metrics.json
 ```
 
 Train from fixed train/val manifests:
 
 ```powershell
-python -m ai.train --dataset data\manifests\train.jsonl --val-dataset data\manifests\val.jsonl --epochs 5 --batch-size 32 --checkpoint ai\checkpoints\from_split_export.pt --metrics-output ai\reports\from_split_export_metrics.json
+python -m ai.train --dataset data\manifests\train.jsonl --val-dataset data\manifests\val.jsonl --epochs 20 --batch-size 32 --early-stopping-patience 5 --checkpoint ai\checkpoints\from_split_export.pt --best-checkpoint ai\checkpoints\from_split_export.best.pt --metrics-output ai\reports\from_split_export_metrics.json
 ```
 
 Train the Transformer baseline:
 
 ```powershell
-python -m ai.train --dataset data\manifests\train.jsonl --val-dataset data\manifests\val.jsonl --model transformer --transformer-embed-dim 128 --transformer-num-heads 8 --transformer-depth 4 --transformer-ff-dim 512 --epochs 5 --batch-size 32 --checkpoint ai\checkpoints\transformer.pt --metrics-output ai\reports\transformer_metrics.json
+python -m ai.train --dataset data\manifests\train.jsonl --val-dataset data\manifests\val.jsonl --model transformer --transformer-embed-dim 128 --transformer-num-heads 8 --transformer-depth 4 --transformer-ff-dim 512 --epochs 20 --batch-size 32 --early-stopping-patience 5 --checkpoint ai\checkpoints\transformer.pt --best-checkpoint ai\checkpoints\transformer.best.pt --metrics-output ai\reports\transformer_metrics.json
 ```
+
+Training behavior:
+- `ai.train` now saves both the final checkpoint and the best-validation checkpoint.
+- Early stopping is driven by validation `board_solved_rate` first, then `mean_total_conflicts`, then `blank_cell_accuracy`.
+- The training config stored in checkpoints now records both requested sizes and resolved dataset sizes.
 
 Evaluate a checkpoint on the fixed test manifest with raw argmax decoding:
 

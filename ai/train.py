@@ -34,10 +34,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--early-stopping-patience", type=int, default=5)
     parser.add_argument(
         "--checkpoint",
         type=Path,
         default=Path("ai/checkpoints/sudoku_mlp.pt"),
+    )
+    parser.add_argument(
+        "--best-checkpoint",
+        type=Path,
+        help="Optional path for the best validation checkpoint. Defaults to the checkpoint path with a .best.pt suffix.",
     )
     parser.add_argument(
         "--metrics-output",
@@ -69,6 +75,31 @@ def main(argv: Sequence[str] | None = None) -> None:
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     epoch_history: list[dict[str, float]] = []
 
+    checkpoint_config = {
+        "train_size": args.train_size,
+        "val_size": args.val_size,
+        "resolved_train_size": len(train_dataset),
+        "resolved_val_size": len(val_dataset),
+        "blanks": args.blanks,
+        "dataset": str(args.dataset) if args.dataset is not None else None,
+        "val_dataset": str(args.val_dataset) if args.val_dataset is not None else None,
+        "model_type": model_type,
+        "batch_size": args.batch_size,
+        "epochs": args.epochs,
+        "learning_rate": args.learning_rate,
+        "seed": args.seed,
+        "early_stopping_patience": args.early_stopping_patience,
+    }
+
+    args.checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    best_checkpoint_path = resolve_best_checkpoint_path(args)
+    best_checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+
+    best_epoch_record: dict[str, float] | None = None
+    best_epoch_index: int | None = None
+    epochs_without_improvement = 0
+    stopped_early = False
+
     for epoch in range(1, args.epochs + 1):
         train_loss = train_one_epoch(model, train_loader, optimizer, device)
         metrics = evaluate_model(model, val_loader, device)
@@ -87,28 +118,45 @@ def main(argv: Sequence[str] | None = None) -> None:
             )
         )
 
+        if is_better_epoch(epoch_record, best_epoch_record):
+            best_epoch_record = dict(epoch_record)
+            best_epoch_index = epoch
+            epochs_without_improvement = 0
+            save_checkpoint(
+                path=best_checkpoint_path,
+                model=model,
+                model_type=model_type,
+                checkpoint_config={
+                    **checkpoint_config,
+                    "best_epoch": best_epoch_index,
+                    "stopped_early": False,
+                },
+            )
+            print(f"saved_best_checkpoint={best_checkpoint_path}")
+        else:
+            epochs_without_improvement += 1
+            if epochs_without_improvement >= args.early_stopping_patience:
+                stopped_early = True
+                print(
+                    f"early_stopping_triggered=1 epoch={epoch} best_epoch={best_epoch_index} "
+                    f"patience={args.early_stopping_patience}"
+                )
+                break
+
+    final_epoch = epoch_history[-1]["epoch"] if epoch_history else 0
     checkpoint_config = {
-        "train_size": args.train_size,
-        "val_size": args.val_size,
-        "blanks": args.blanks,
-        "dataset": str(args.dataset) if args.dataset is not None else None,
-        "val_dataset": str(args.val_dataset) if args.val_dataset is not None else None,
-        "model_type": model_type,
-        "batch_size": args.batch_size,
-        "epochs": args.epochs,
-        "learning_rate": args.learning_rate,
-        "seed": args.seed,
+        **checkpoint_config,
+        "best_epoch": best_epoch_index,
+        "stopped_early": stopped_early,
+        "final_epoch": final_epoch,
+        "best_checkpoint": str(best_checkpoint_path),
     }
 
-    args.checkpoint.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(
-        {
-            "model_state_dict": model.state_dict(),
-            "model_type": model_type,
-            "model_config": model.get_config(),
-            "config": checkpoint_config,
-        },
-        args.checkpoint,
+    save_checkpoint(
+        path=args.checkpoint,
+        model=model,
+        model_type=model_type,
+        checkpoint_config=checkpoint_config,
     )
     print(f"saved_checkpoint={args.checkpoint}")
 
@@ -119,6 +167,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         train_dataset_size=len(train_dataset),
         val_dataset_size=len(val_dataset),
         epoch_history=epoch_history,
+        best_epoch_record=best_epoch_record,
     )
     print(f"saved_metrics={metrics_output}")
 
@@ -147,6 +196,14 @@ def build_model_config(args: argparse.Namespace) -> tuple[str, dict[str, int | f
     )
 
 
+def resolve_best_checkpoint_path(args: argparse.Namespace) -> Path:
+    if args.best_checkpoint is not None:
+        return args.best_checkpoint
+    checkpoint_name = args.checkpoint.name
+    checkpoint_stem = checkpoint_name[:-3] if checkpoint_name.endswith(".pt") else args.checkpoint.stem
+    return args.checkpoint.with_name(f"{checkpoint_stem}.best.pt")
+
+
 def resolve_metrics_output_path(args: argparse.Namespace) -> Path:
     if args.metrics_output is not None:
         return args.metrics_output
@@ -161,6 +218,7 @@ def write_metrics_report(
     train_dataset_size: int,
     val_dataset_size: int,
     epoch_history: list[dict[str, float]],
+    best_epoch_record: dict[str, float] | None,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     final_metrics = epoch_history[-1] if epoch_history else None
@@ -172,6 +230,7 @@ def write_metrics_report(
                 "val_dataset_size": val_dataset_size,
                 "epochs": epoch_history,
                 "final_metrics": final_metrics,
+                "best_epoch_metrics": best_epoch_record,
             },
             handle,
             indent=2,
@@ -254,6 +313,40 @@ def masked_cross_entropy(
     if active_losses.numel() == 0:
         raise ValueError("blank_mask must include at least one trainable cell.")
     return active_losses.mean()
+
+
+def is_better_epoch(candidate: dict[str, float], current_best: dict[str, float] | None) -> bool:
+    if current_best is None:
+        return True
+    candidate_score = (
+        candidate["board_solved_rate"],
+        -candidate["mean_total_conflicts"],
+        candidate["blank_cell_accuracy"],
+    )
+    current_score = (
+        current_best["board_solved_rate"],
+        -current_best["mean_total_conflicts"],
+        current_best["blank_cell_accuracy"],
+    )
+    return candidate_score > current_score
+
+
+def save_checkpoint(
+    path: Path,
+    model: torch.nn.Module,
+    model_type: str,
+    checkpoint_config: dict[str, object],
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "model_type": model_type,
+            "model_config": model.get_config(),
+            "config": checkpoint_config,
+        },
+        path,
+    )
 
 
 if __name__ == "__main__":

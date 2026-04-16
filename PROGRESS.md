@@ -154,3 +154,39 @@
 - Commit the iterative decoding segment.
 - Decide whether to expose iterative decoding as the default non-solver inference path.
 - If the next goal is to raise raw-model quality further, move next to constraint-aware training or checkpoint-metadata cleanup.
+
+## 2026-04-16 Early Stopping Segment
+
+### Current Progress
+- Added validation-driven early stopping to `ai.train`.
+- Added separate best-checkpoint saving alongside the final checkpoint.
+- Fixed checkpoint metadata so manifest-based training now records resolved train/validation dataset sizes.
+- Added best-epoch metadata to the metrics report and checkpoint payload.
+
+### Issues Encountered
+- The previous training loop always saved only the final epoch, which made it impossible to tell whether the best validation state had already passed.
+- Checkpoints saved from `--dataset` / `--val-dataset` runs still reported the CLI default `train_size` / `val_size`, which made later trace work misleading.
+
+### Resolution
+- Introduced `--early-stopping-patience` with validation ranking based on `board_solved_rate`, then `mean_total_conflicts`, then `blank_cell_accuracy`.
+- Added `--best-checkpoint` plus a default `.best.pt` path when one is not supplied.
+- Stored both requested and resolved dataset sizes in the checkpoint config so manifest-driven runs can be traced correctly.
+- Wrote `best_epoch_metrics`, `best_epoch`, `final_epoch`, and `stopped_early` into the saved metadata.
+
+### Completed Segment
+- Training now stops when validation progress plateaus instead of always running the full requested epoch count.
+- The repo now preserves both the final state and the best validation state for the same run.
+- The earlier checkpoint-metadata mismatch for dataset-backed training is now fixed.
+
+### Verification
+- `python -m unittest discover -s tests -v`
+- Result: `41` tests passed.
+- The new training-path tests confirm:
+  - best checkpoint files are written,
+  - resolved dataset sizes are stored correctly,
+  - early stopping triggers when patience is exhausted.
+
+### Next Steps
+- Commit the early-stopping segment.
+- Use the best checkpoint rather than the final checkpoint in future formal evaluations.
+- If the next focus is raw model quality, move next to constraint-aware training.
