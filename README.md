@@ -120,12 +120,21 @@ Evaluate a checkpoint on the fixed test manifest:
 python -m ai.eval --checkpoint ai\checkpoints\from_split_export.pt --dataset data\manifests\test.jsonl --batch-size 32 --report ai\reports\test_metrics.json
 ```
 
+`ai.eval` now reports not only accuracy and valid-board rate, but also:
+- `mean_mismatch_count`
+- `mean_row_conflicts`
+- `mean_col_conflicts`
+- `mean_box_conflicts`
+- `mean_total_conflicts`
+
 Render the saved reports to PNG images:
 
 ```powershell
 python -m ai.plot_results --input ai\reports\from_split_export_metrics.json --output ai\reports\from_split_export_metrics.png
 python -m ai.plot_results --input ai\reports\test_metrics.json --output ai\reports\test_metrics.png
 ```
+
+Evaluation PNGs now visualize both the rate-style metrics and the conflict-style metrics.
 
 Export generated data directly to JSONL:
 
@@ -148,6 +157,6 @@ A good order for this repo is:
 3. Inspect exported `puzzle -> solution` records.
 4. Train the MLP baseline and save per-epoch metrics.
 5. Train the Transformer baseline on the same splits.
-6. Run `ai.eval` on the fixed test split.
+6. Run `ai.eval` on the fixed test split and inspect the conflict metrics.
 7. Render the training and evaluation reports with `ai.plot_results`.
 8. Use `analyze_errors.py` to inspect failure modes.

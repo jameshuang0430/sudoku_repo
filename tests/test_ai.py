@@ -7,7 +7,7 @@ import torch
 
 from ai.checkpoint import load_model_from_checkpoint
 from ai.dataset import SudokuDataset, SudokuFileDataset, flat_to_board, sample_to_record
-from ai.eval import compose_completed_boards, main as eval_main
+from ai.eval import compose_completed_boards, evaluate_model, main as eval_main, summarize_board_violations
 from ai.model import SudokuMLP, SudokuTransformer
 from ai.plot_results import main as plot_main
 from ai.train import main as train_main
@@ -97,6 +97,46 @@ class AITests(unittest.TestCase):
         completed = compose_completed_boards(digits, predictions)
 
         self.assertEqual(completed.tolist(), [[5, 4, 5, 4]])
+
+    def test_summarize_board_violations_counts_row_column_and_box_conflicts(self) -> None:
+        board = [
+            5, 5, 3, 4, 7, 8, 9, 1, 2,
+            6, 7, 2, 1, 9, 5, 3, 4, 8,
+            1, 9, 8, 3, 4, 2, 5, 6, 7,
+            8, 5, 9, 7, 6, 1, 4, 2, 3,
+            4, 2, 6, 8, 5, 3, 7, 9, 1,
+            7, 1, 4, 9, 2, 4, 8, 5, 6,
+            9, 6, 1, 5, 3, 7, 2, 8, 4,
+            2, 8, 7, 4, 1, 9, 6, 3, 5,
+            3, 4, 5, 2, 8, 6, 1, 7, 9,
+        ]
+
+        summary = summarize_board_violations(board)
+
+        self.assertFalse(summary["is_valid"])
+        self.assertGreaterEqual(summary["row_conflicts"], 2)
+        self.assertGreaterEqual(summary["col_conflicts"], 1)
+        self.assertGreaterEqual(summary["box_conflicts"], 1)
+        self.assertEqual(
+            summary["total_conflicts"],
+            summary["row_conflicts"] + summary["col_conflicts"] + summary["box_conflicts"],
+        )
+
+    def test_evaluate_model_reports_mismatch_and_conflict_metrics(self) -> None:
+        class FixedModel(torch.nn.Module):
+            def forward(self, digits: torch.Tensor, givens: torch.Tensor) -> torch.Tensor:
+                logits = torch.zeros((digits.size(0), 81, 9), dtype=torch.float32)
+                logits[:, :, 0] = 1.0
+                return logits
+
+        dataset = SudokuDataset(size=2, blanks=10, seed=7)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False)
+        metrics = evaluate_model(FixedModel(), dataloader, torch.device("cpu"))
+
+        self.assertIn("mean_mismatch_count", metrics)
+        self.assertIn("mean_total_conflicts", metrics)
+        self.assertGreater(metrics["mean_mismatch_count"], 0.0)
+        self.assertGreaterEqual(metrics["mean_total_conflicts"], 0.0)
 
     def test_load_model_from_checkpoint_restores_model(self) -> None:
         model = SudokuMLP(embed_dim=8, hidden_dim=64, depth=2, dropout=0.0)
@@ -290,6 +330,7 @@ class AITests(unittest.TestCase):
             report = json.loads(report_path.read_text(encoding="utf-8"))
 
         self.assertIn("metrics", report)
+        self.assertIn("mean_total_conflicts", report["metrics"])
         self.assertEqual(report["evaluation_config"]["dataset"], str(dataset_path))
 
     def test_plot_main_supports_training_report(self) -> None:

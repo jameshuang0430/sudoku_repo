@@ -2,7 +2,12 @@
   "metrics": {
     "blank_cell_accuracy": 0.806689453125,
     "board_solved_rate": 0.0,
-    "valid_board_rate": 0.0
+    "valid_board_rate": 0.0,
+    "mean_mismatch_count": 7.732421875,
+    "mean_row_conflicts": 5.015625,
+    "mean_col_conflicts": 5.447265625,
+    "mean_box_conflicts": 4.478515625,
+    "mean_total_conflicts": 14.94140625
   },
   "training_config": {
     "train_size": 512,
