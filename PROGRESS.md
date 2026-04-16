@@ -323,3 +323,33 @@
 - Commit this larger-scale experiment segment.
 - Use `ai\checkpoints\transformer_large_current.best.pt` as the default checkpoint for further comparison work.
 - If the next goal is to push solved-board rate substantially higher, move next to either more scale again or constraint-aware training.
+
+## 2026-04-17 Single-Puzzle Inference Segment
+
+### Current Progress
+- Added `ai.infer` for single-puzzle checkpoint inference.
+- The new CLI supports `--file`, `--puzzle`, and `--stdin` input modes.
+- It prints the original puzzle, decoded prediction, and board-validity summary, with optional raw argmax output when useful.
+- Added a dedicated `tests/test_infer.py` so inference coverage stays separate from the training stack work.
+
+### Issues Encountered
+- The first version of the CLI used `solver.board_to_string()`, which validates boards before rendering them.
+- That broke `argmax` inference output when the raw prediction was structurally invalid, which is a normal case for this project.
+
+### Resolution
+- Replaced strict rendering with a local `format_board()` helper that can print invalid boards safely.
+- Kept the actual legality check explicit via `summarize_board_violations()` instead of hiding it inside board formatting.
+- Added dedicated tests for both `--file` and inline `--puzzle` usage against the current best checkpoint.
+
+### Completed Segment
+- You can now point a checkpoint directly at a puzzle file and get a readable prediction without building a dataset or running full evaluation.
+- The repo now has a lightweight interactive inference entry point for checkpoint sanity checks.
+
+### Verification
+- `python -m unittest discover -s tests -p "test_infer.py" -v`
+- Result: `2` tests passed.
+
+### Next Steps
+- Commit the single-puzzle inference segment.
+- If desired, add JSON output mode so `ai.infer` can feed other tooling without parsing terminal text.
+- Return to the unfinished constraint-aware training work in a separate clean segment.

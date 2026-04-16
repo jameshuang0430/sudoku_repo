@@ -26,6 +26,7 @@ solver/
 tests/
   test_ai.py
   test_cli.py
+  test_infer.py
   test_solver.py
 ai/
   analyze_errors.py
@@ -34,6 +35,7 @@ ai/
   decode.py
   eval.py
   export_dataset.py
+  infer.py
   model.py
   plot_results.py
   train.py
@@ -138,6 +140,26 @@ Evaluate the same checkpoint with solver-guided post-processing:
 python -m ai.eval --checkpoint ai\checkpoints\transformer_large.pt --dataset data\manifests_large\test.jsonl --batch-size 32 --decode-mode solver_guided --report ai\reports\transformer_large_solver_guided_test_metrics.json
 ```
 
+Run single-puzzle inference from a file:
+
+```powershell
+python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --file puzzles\puzzle_001.txt --decode-mode iterative
+```
+
+Run single-puzzle inference from an inline puzzle string:
+
+```powershell
+python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --puzzle "530070000600195000098000060800060003400803001700020006060000280000419005000080079" --decode-mode iterative
+```
+
+Run single-puzzle inference from standard input:
+
+```powershell
+Get-Content puzzles\puzzle_001.txt | python -m ai.infer --checkpoint ai\checkpoints\transformer_large_current.best.pt --stdin --decode-mode iterative
+```
+
+`ai.infer` prints the original puzzle, optional raw argmax prediction, decoded prediction, and whether the final board is structurally valid.
+
 Decode-mode interpretation:
 - `argmax`: raw model output with no repair.
 - `iterative`: re-runs the model while filling confident cells round by round, without using the exact solver.
@@ -201,5 +223,6 @@ A good order for this repo is:
 5. Train the Transformer baseline on the same splits.
 6. Run `ai.eval` on the fixed test split and inspect the conflict metrics.
 7. Compare `argmax`, `iterative`, and `solver_guided` decode modes to separate raw prediction quality, non-solver refinement, and exact-solver repair.
-8. Render the training and evaluation reports with `ai.plot_results`.
-9. Use `analyze_errors.py` to inspect failure modes.
+8. Run `ai.infer` on a single puzzle file when you want an interactive checkpoint sanity check.
+9. Render the training and evaluation reports with `ai.plot_results`.
+10. Use `analyze_errors.py` to inspect failure modes.
