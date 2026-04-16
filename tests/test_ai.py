@@ -7,11 +7,12 @@ import torch
 
 from ai.checkpoint import load_model_from_checkpoint
 from ai.dataset import SudokuDataset, SudokuFileDataset, flat_to_board, sample_to_record
-from ai.eval import compose_completed_boards, evaluate_model, main as eval_main, summarize_board_violations
+from ai.decode import compose_completed_boards, decode_completed_boards
+from ai.eval import evaluate_model, main as eval_main, summarize_board_violations
 from ai.model import SudokuMLP, SudokuTransformer
 from ai.plot_results import main as plot_main
 from ai.train import main as train_main
-from solver import export_puzzle_dataset
+from solver import export_puzzle_dataset, solve_board_with_scores
 
 
 class AITests(unittest.TestCase):
@@ -98,6 +99,32 @@ class AITests(unittest.TestCase):
 
         self.assertEqual(completed.tolist(), [[5, 4, 5, 4]])
 
+    def test_decode_completed_boards_solver_guided_repairs_wrong_argmax(self) -> None:
+        dataset = SudokuDataset(size=1, blanks=10, seed=7)
+        sample = dataset[0]
+        digits = sample["digits"].unsqueeze(0)
+        targets = sample["targets"]
+        logits = torch.full((1, 81, 9), -5.0, dtype=torch.float32)
+
+        for index, target_value in enumerate(targets.tolist()):
+            logits[0, index, target_value] = 5.0
+
+        blank_indices = (sample["digits"] == 0).nonzero(as_tuple=False).flatten().tolist()
+        wrong_index = blank_indices[0]
+        correct_class = targets[wrong_index].item()
+        wrong_class = (correct_class + 1) % 9
+        logits[0, wrong_index, correct_class] = 1.0
+        logits[0, wrong_index, wrong_class] = 9.0
+
+        completed, postprocess_change_counts = decode_completed_boards(digits, logits, mode="solver_guided")
+
+        self.assertEqual(completed[0].tolist(), (targets + 1).tolist())
+        self.assertEqual(postprocess_change_counts, [1])
+
+    def test_solve_board_with_scores_validates_shape(self) -> None:
+        with self.assertRaisesRegex(ValueError, "81 score vectors"):
+            solve_board_with_scores([[0] * 9 for _ in range(9)], [[0.0] * 9])
+
     def test_summarize_board_violations_counts_row_column_and_box_conflicts(self) -> None:
         board = [
             5, 5, 3, 4, 7, 8, 9, 1, 2,
@@ -135,6 +162,7 @@ class AITests(unittest.TestCase):
 
         self.assertIn("mean_mismatch_count", metrics)
         self.assertIn("mean_total_conflicts", metrics)
+        self.assertIn("mean_postprocess_change_count", metrics)
         self.assertGreater(metrics["mean_mismatch_count"], 0.0)
         self.assertGreaterEqual(metrics["mean_total_conflicts"], 0.0)
 
@@ -322,6 +350,8 @@ class AITests(unittest.TestCase):
                     str(dataset_path),
                     "--batch-size",
                     "2",
+                    "--decode-mode",
+                    "solver_guided",
                     "--report",
                     str(report_path),
                 ]
@@ -331,7 +361,9 @@ class AITests(unittest.TestCase):
 
         self.assertIn("metrics", report)
         self.assertIn("mean_total_conflicts", report["metrics"])
+        self.assertIn("mean_postprocess_change_count", report["metrics"])
         self.assertEqual(report["evaluation_config"]["dataset"], str(dataset_path))
+        self.assertEqual(report["evaluation_config"]["decode_mode"], "solver_guided")
 
     def test_plot_main_supports_training_report(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -378,6 +410,7 @@ class AITests(unittest.TestCase):
                             "blank_cell_accuracy": 0.12,
                             "board_solved_rate": 0.0,
                             "valid_board_rate": 0.03,
+                            "mean_postprocess_change_count": 1.5,
                         }
                     },
                     indent=2,

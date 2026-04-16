@@ -72,3 +72,44 @@
 - Commit the richer evaluation segment.
 - Consider iterative decoding, constraint-aware loss terms, richer error analysis, or post-processing with the solver.
 - Fix checkpoint metadata so resolved dataset sizes are preserved when training from exported manifests.
+
+## 2026-04-16 Hybrid Decoding Segment
+
+### Current Progress
+- Added `solver.solve_board_with_scores()` so the exact solver can be reused as a guided decoder rather than only as a standalone CLI utility.
+- Added `ai/decode.py` with switchable `argmax` and `solver_guided` decode modes.
+- Updated `ai.eval` and `ai.analyze_errors` so both tools can compare raw model outputs against solver-guided post-processing on the same checkpoint.
+- Extended evaluation reports and PNG plots to include `mean_postprocess_change_count`.
+- Verified the new path with the full repo test suite and a real run on the large Transformer checkpoint.
+
+### Issues Encountered
+- A solver-guided decoder can make unique generated datasets look trivially perfect because the solver can always recover the one valid completion from the givens.
+- The earlier conflict metrics alone were not enough to show how much the solver had to override the model.
+
+### Resolution
+- Kept decoding explicit with `--decode-mode argmax|solver_guided` so raw prediction quality and repaired-board quality stay separable in reports.
+- Added `mean_postprocess_change_count` so the hybrid path now reports how many blank-cell argmax guesses were changed by the solver on average.
+- Documented the decode-mode caveat in the README instead of presenting solver-guided numbers as if they were raw model outputs.
+
+### Completed Segment
+- Hybrid decoding is now implemented, test-covered, documented, and reported.
+- The repo can now measure both raw Sudoku consistency failures and a solver-repaired upper bound for the same checkpoint.
+
+### Large Transformer Hybrid Evaluation
+- Command:
+  - `python -m ai.eval --checkpoint ai\checkpoints\transformer_large.pt --dataset data\manifests_large\test.jsonl --batch-size 32 --decode-mode solver_guided --report ai\reports\transformer_large_solver_guided_test_metrics.json`
+- Results:
+  - `blank_cell_accuracy=1.0000`
+  - `board_solved_rate=1.0000`
+  - `valid_board_rate=1.0000`
+  - `mean_mismatch_count=0.00`
+  - `mean_total_conflicts=0.00`
+  - `mean_postprocess_change_count=7.73`
+- Interpretation:
+  - The solver-guided path fully repairs the large Transformer outputs on this fixed unique-solution test split.
+  - The average `7.73` post-process changes lines up with the earlier raw `mean_mismatch_count`, which confirms the solver is repairing the same last-mile mistakes rather than the model already producing legal boards on its own.
+
+### Next Steps
+- Commit the hybrid decoding segment.
+- Decide whether to keep solver-guided decoding as an evaluation-only upper bound or expose it as the default inference path.
+- If raw model quality still matters most, move next to iterative decoding or constraint-aware training instead of relying only on solver repair.

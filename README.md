@@ -31,6 +31,7 @@ ai/
   analyze_errors.py
   checkpoint.py
   dataset.py
+  decode.py
   eval.py
   export_dataset.py
   model.py
@@ -114,10 +115,16 @@ Train the Transformer baseline:
 python -m ai.train --dataset data\manifests\train.jsonl --val-dataset data\manifests\val.jsonl --model transformer --transformer-embed-dim 128 --transformer-num-heads 8 --transformer-depth 4 --transformer-ff-dim 512 --epochs 5 --batch-size 32 --checkpoint ai\checkpoints\transformer.pt --metrics-output ai\reports\transformer_metrics.json
 ```
 
-Evaluate a checkpoint on the fixed test manifest:
+Evaluate a checkpoint on the fixed test manifest with raw argmax decoding:
 
 ```powershell
 python -m ai.eval --checkpoint ai\checkpoints\from_split_export.pt --dataset data\manifests\test.jsonl --batch-size 32 --report ai\reports\test_metrics.json
+```
+
+Evaluate the same checkpoint with solver-guided post-processing:
+
+```powershell
+python -m ai.eval --checkpoint ai\checkpoints\transformer_large.pt --dataset data\manifests_large\test.jsonl --batch-size 32 --decode-mode solver_guided --report ai\reports\transformer_large_solver_guided_test_metrics.json
 ```
 
 `ai.eval` now reports not only accuracy and valid-board rate, but also:
@@ -126,15 +133,19 @@ python -m ai.eval --checkpoint ai\checkpoints\from_split_export.pt --dataset dat
 - `mean_col_conflicts`
 - `mean_box_conflicts`
 - `mean_total_conflicts`
+- `mean_postprocess_change_count`
+
+`mean_postprocess_change_count` is especially useful for `--decode-mode solver_guided`: it shows how many blank-cell argmax guesses the solver had to override per board on average.
 
 Render the saved reports to PNG images:
 
 ```powershell
 python -m ai.plot_results --input ai\reports\from_split_export_metrics.json --output ai\reports\from_split_export_metrics.png
 python -m ai.plot_results --input ai\reports\test_metrics.json --output ai\reports\test_metrics.png
+python -m ai.plot_results --input ai\reports\transformer_large_solver_guided_test_metrics.json --output ai\reports\transformer_large_solver_guided_test_metrics.png
 ```
 
-Evaluation PNGs now visualize both the rate-style metrics and the conflict-style metrics.
+Evaluation PNGs now visualize both the rate-style metrics and the conflict-style metrics, including post-processing changes when present.
 
 Export generated data directly to JSONL:
 
@@ -142,10 +153,16 @@ Export generated data directly to JSONL:
 python -m ai.export_dataset --size 32 --blanks 40 --seed 7 --output data/sudoku_dataset.jsonl
 ```
 
-Analyze model failures:
+Analyze model failures on generated samples:
 
 ```powershell
 python -m ai.analyze_errors --checkpoint ai/checkpoints/smoke.pt --dataset-size 16 --limit 2
+```
+
+Analyze a fixed manifest with solver-guided decoding:
+
+```powershell
+python -m ai.analyze_errors --checkpoint ai/checkpoints/transformer_large.pt --dataset data/manifests_large/test.jsonl --decode-mode solver_guided --limit 2
 ```
 
 ## Learning path
@@ -158,5 +175,6 @@ A good order for this repo is:
 4. Train the MLP baseline and save per-epoch metrics.
 5. Train the Transformer baseline on the same splits.
 6. Run `ai.eval` on the fixed test split and inspect the conflict metrics.
-7. Render the training and evaluation reports with `ai.plot_results`.
-8. Use `analyze_errors.py` to inspect failure modes.
+7. Compare `argmax` and `solver_guided` decode modes to separate raw prediction quality from legality repair.
+8. Render the training and evaluation reports with `ai.plot_results`.
+9. Use `analyze_errors.py` to inspect failure modes.

@@ -25,6 +25,7 @@ EVALUATION_CONFLICT_KEYS = [
     ("mean_col_conflicts", "Mean Col Conflicts"),
     ("mean_box_conflicts", "Mean Box Conflicts"),
     ("mean_total_conflicts", "Mean Total Conflicts"),
+    ("mean_postprocess_change_count", "Mean Postprocess Change Count"),
 ]
 
 

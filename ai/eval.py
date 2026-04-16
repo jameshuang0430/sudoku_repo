@@ -12,6 +12,7 @@ from solver import validate_board
 
 from .checkpoint import load_model_from_checkpoint
 from .dataset import SudokuDataset, SudokuFileDataset
+from .decode import compose_completed_boards, decode_completed_boards
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -22,6 +23,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--blanks", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--decode-mode", choices=["argmax", "solver_guided"], default="argmax")
     parser.add_argument("--report", type=Path)
     return parser.parse_args(argv)
 
@@ -33,16 +35,17 @@ def main(argv: Sequence[str] | None = None) -> None:
     dataset = load_evaluation_dataset(args)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
 
-    metrics = evaluate_model(model, dataloader, device)
+    metrics = evaluate_model(model, dataloader, device, decode_mode=args.decode_mode)
     training_config = payload.get("config", {})
     evaluation_source = str(args.dataset) if args.dataset is not None else "generated"
     print(
-        "checkpoint={checkpoint} eval_source={eval_source} train_seed={train_seed} "
+        "checkpoint={checkpoint} eval_source={eval_source} decode_mode={decode_mode} train_seed={train_seed} "
         "blank_cell_acc={blank_cell_accuracy:.4f} board_solved_rate={board_solved_rate:.4f} "
         "valid_board_rate={valid_board_rate:.4f} mean_mismatch_count={mean_mismatch_count:.2f} "
-        "mean_total_conflicts={mean_total_conflicts:.2f}".format(
+        "mean_total_conflicts={mean_total_conflicts:.2f} mean_postprocess_change_count={mean_postprocess_change_count:.2f}".format(
             checkpoint=args.checkpoint,
             eval_source=evaluation_source,
+            decode_mode=args.decode_mode,
             train_seed=training_config.get("seed", "unknown"),
             **metrics,
         )
@@ -62,6 +65,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                         "blanks": args.blanks,
                         "batch_size": args.batch_size,
                         "seed": args.seed,
+                        "decode_mode": args.decode_mode,
                     },
                 },
                 handle,
@@ -76,7 +80,12 @@ def load_evaluation_dataset(args: argparse.Namespace) -> Dataset[Any]:
     return SudokuDataset(size=args.dataset_size, blanks=args.blanks, seed=args.seed)
 
 
-def evaluate_model(model: torch.nn.Module, dataloader: DataLoader[Any], device: torch.device) -> dict[str, float]:
+def evaluate_model(
+    model: torch.nn.Module,
+    dataloader: DataLoader[Any],
+    device: torch.device,
+    decode_mode: str = "argmax",
+) -> dict[str, float]:
     model.eval()
     total_blank_cells = 0
     correct_blank_cells = 0
@@ -88,6 +97,7 @@ def evaluate_model(model: torch.nn.Module, dataloader: DataLoader[Any], device: 
     total_col_conflicts = 0
     total_box_conflicts = 0
     total_constraint_conflicts = 0
+    total_postprocess_change_count = 0
 
     with torch.no_grad():
         for batch in dataloader:
@@ -96,14 +106,17 @@ def evaluate_model(model: torch.nn.Module, dataloader: DataLoader[Any], device: 
             targets = batch["targets"].to(device)
 
             logits = model(digits, givens)
-            predictions = logits.argmax(dim=-1)
-            blank_mask = digits == 0
-
-            correct_blank_cells += ((predictions == targets) & blank_mask).sum().item()
-            total_blank_cells += blank_mask.sum().item()
-
-            completed_boards = compose_completed_boards(digits, predictions)
+            completed_boards, postprocess_change_counts = decode_completed_boards(
+                digits,
+                logits,
+                mode=decode_mode,
+            )
+            blank_mask = digits.cpu() == 0
             target_boards = targets.cpu() + 1
+
+            correct_blank_cells += ((completed_boards == target_boards) & blank_mask).sum().item()
+            total_blank_cells += blank_mask.sum().item()
+            total_postprocess_change_count += sum(postprocess_change_counts)
 
             for completed_board, target_board in zip(completed_boards, target_boards):
                 total_boards += 1
@@ -143,11 +156,8 @@ def evaluate_model(model: torch.nn.Module, dataloader: DataLoader[Any], device: 
         "mean_col_conflicts": total_col_conflicts / total_boards if total_boards else 0.0,
         "mean_box_conflicts": total_box_conflicts / total_boards if total_boards else 0.0,
         "mean_total_conflicts": total_constraint_conflicts / total_boards if total_boards else 0.0,
+        "mean_postprocess_change_count": total_postprocess_change_count / total_boards if total_boards else 0.0,
     }
-
-
-def compose_completed_boards(digits: torch.Tensor, predictions: torch.Tensor) -> torch.Tensor:
-    return torch.where(digits.cpu() == 0, predictions.cpu() + 1, digits.cpu())
 
 
 def summarize_board_violations(flat_board: list[int]) -> dict[str, int | bool]:
