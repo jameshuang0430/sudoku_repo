@@ -1,13 +1,19 @@
-name: Release Check
+name: CI Smoke Gate
 
 on:
   push:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-smoke-gate-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  release-check:
+  smoke-gate:
+    name: Smoke Gate
     runs-on: ubuntu-latest
 
     steps:
@@ -45,7 +51,7 @@ jobs:
           --best-checkpoint ai/checkpoints/ci_smoke.best.pt
           --metrics-output ai/reports/ci_smoke_metrics.json
 
-      - name: Run release check
+      - name: Run CI smoke gate
         run: >
           python -m ai.release_check
           --checkpoint ai/checkpoints/ci_smoke.best.pt
@@ -62,11 +68,23 @@ jobs:
           --max-production-pure-board-ms 500.0
           --report ai/reports/ci_release_check.json
 
+      - name: Write workflow summary
+        if: always()
+        run: |
+          {
+            echo "## CI Smoke Gate"
+            echo
+            echo "- Workflow: automated per-PR and per-main-push smoke gate"
+            echo "- Checkpoint: \`ai/checkpoints/ci_smoke.best.pt\`"
+            echo "- Report: \`ai/reports/ci_release_check.json\`"
+            echo "- Full production gate: still manual, because the production checkpoint is not tracked in git"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload smoke artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: release-check-artifacts
+          name: ci-smoke-gate-artifacts
           path: |
             ai/reports/ci_smoke_metrics.json
             ai/reports/ci_release_check.json

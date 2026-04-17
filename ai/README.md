@@ -118,6 +118,7 @@ python -m ai.release_gate --profile full --mode baseline
 Recommended usage split:
 - Run `python -m ai.release_gate --profile smoke` on every PR.
 - Run `python -m ai.release_gate --profile full` before release or when changing model / decode defaults.
+- GitHub Actions automates only the smoke CI gate today; the full gate remains manual because the production checkpoint is not tracked in git.
 
 Recommended full-gate policy:
 - baseline report: `ai\reports\release_check_generalization_full_baseline.json`

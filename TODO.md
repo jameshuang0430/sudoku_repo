@@ -47,6 +47,7 @@ Acceptance criteria:
 - [x] Decide which saved release-check report becomes the official baseline and what regression thresholds should fail CI or release review.
 - [x] Decide whether the current 128-sample smoke gate should remain the only release gate or be paired with a slower full-manifest comparison.
 - [x] Decide which of the now-implemented `smoke` and `full` gates should run on every PR versus only before release.
+- [ ] Decide whether to add a checkpoint distribution mechanism if the `full` gate should also run inside GitHub Actions.
 
 Acceptance criteria:
 - There is one standard way to answer "did the recommended preset regress?"
@@ -72,4 +73,5 @@ Acceptance criteria:
 1. Finish repo cleanup and commit the current product-facing state.
 2. Keep `ai.product` as the top documented entrypoint and clarify `fast` versus `pure`.
 3. Keep `smoke` as the per-PR gate and run `full` before release or when changing model/decode defaults.
-4. Only then return to deeper raw-model-quality work.
+4. If needed later, add a deliberate checkpoint delivery path before trying to automate the full gate in CI.
+5. Only then return to deeper raw-model-quality work.

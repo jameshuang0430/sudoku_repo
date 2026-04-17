@@ -238,6 +238,7 @@ python -m ai.release_gate --profile full
 Recommended usage split:
 - Run `python -m ai.release_gate --profile smoke` on every PR.
 - Run `python -m ai.release_gate --profile full` before release or when changing model / decode defaults.
+- GitHub Actions currently automates only the smoke CI gate; the full gate remains manual because the production checkpoint is not tracked in git.
 
 Recommended thresholds for comparison runs:
 - `production_fast`: `min_solved_rate=0.999`, `max_board_ms=2.0`, `max_solved_rate_drop=0.001`, `max_board_ms_increase=1.0`
@@ -257,7 +258,7 @@ Current intended policy:
 - The repo still has untracked source/docs files that should be committed together so the documented product state matches the actual code state.
 - Raw argmax quality is still much weaker than the product presets.
 - The public docs should explain even more directly when users should choose `fast` versus `pure`.
-- The repo now has both smoke and full release-gate workflows; the current recommendation is smoke on every PR and full before release or when touching model/decode defaults.
+- The repo now has both smoke and full release-gate workflows; GitHub Actions automates smoke, while full remains manual until there is a checkpoint distribution strategy for CI.
 
 ## Recommended Next Steps
 
@@ -273,6 +274,7 @@ Reason:
 
 - Keep `production_fast` as the default path unless there is a strong non-solver-only requirement.
 - Keep `smoke` as the default per-PR gate and run `full` before release or when changing model/decode defaults.
+- If full-gate CI automation becomes important, add a deliberate way to provide the production checkpoint to GitHub Actions rather than weakening the gate.
 - If raw model quality becomes a real goal, evaluate future work by solved-board rate and conflict reduction, not by blank-cell accuracy alone.
 
 ## Notes For The Next Person
