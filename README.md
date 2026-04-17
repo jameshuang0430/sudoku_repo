@@ -275,6 +275,13 @@ python -m ai.release_check --checkpoint ai\checkpoints\transformer_large_current
 
 Use `--baseline-report ai\reports\release_check.json` together with regression thresholds such as `--max-production-fast-solved-rate-drop` or `--max-production-fast-board-ms-increase` when you want to block regressions against a saved prior run.
 
+Use the wrapper entrypoint when you want fixed release-gate profiles without retyping the policy:
+
+```powershell
+python -m ai.release_gate --profile smoke
+python -m ai.release_gate --profile full
+```
+
 Current recommended smoke-gate baseline:
 
 - Baseline report: `ai\reports\release_check_generalization_baseline.json`
@@ -289,6 +296,32 @@ python -m ai.release_check --checkpoint ai\checkpoints\transformer_large_current
   - `--min-production-pure-solved-rate 0.99`
   - `--min-research-raw-blank-cell-accuracy 0.84`
   - `--max-production-fast-board-ms 3.0`
+  - `--max-production-pure-board-ms 30.0`
+  - `--max-production-fast-solved-rate-drop 0.001`
+  - `--max-production-pure-solved-rate-drop 0.01`
+  - `--max-production-fast-board-ms-increase 1.0`
+  - `--max-production-pure-board-ms-increase 6.0`
+
+Current recommended full-manifest baseline:
+
+- Baseline report: `ai\reports\release_check_generalization_full_baseline.json`
+- Baseline command:
+
+```powershell
+python -m ai.release_gate --profile full --mode baseline
+```
+
+- Default compare command:
+
+```powershell
+python -m ai.release_gate --profile full
+```
+
+- Recommended full-gate thresholds:
+  - `--min-production-fast-solved-rate 0.999`
+  - `--min-production-pure-solved-rate 0.995`
+  - `--min-research-raw-blank-cell-accuracy 0.84`
+  - `--max-production-fast-board-ms 2.0`
   - `--max-production-pure-board-ms 30.0`
   - `--max-production-fast-solved-rate-drop 0.001`
   - `--max-production-pure-solved-rate-drop 0.01`

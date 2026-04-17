@@ -45,7 +45,8 @@ Acceptance criteria:
 - [x] Store the resulting metrics in a predictable report location.
 - [x] Document how to use that comparison before changing decode defaults.
 - [x] Decide which saved release-check report becomes the official baseline and what regression thresholds should fail CI or release review.
-- [ ] Decide whether the current 128-sample smoke gate should remain the only release gate or be paired with a slower full-manifest comparison.
+- [x] Decide whether the current 128-sample smoke gate should remain the only release gate or be paired with a slower full-manifest comparison.
+- [ ] Decide which of the now-implemented `smoke` and `full` gates should run on every PR versus only before release.
 
 Acceptance criteria:
 - There is one standard way to answer "did the recommended preset regress?"
@@ -70,5 +71,5 @@ Acceptance criteria:
 
 1. Finish repo cleanup and commit the current product-facing state.
 2. Keep `ai.product` as the top documented entrypoint and clarify `fast` versus `pure`.
-3. Decide whether to keep the current smoke-gate baseline alone or add a second full-manifest release gate.
+3. Decide whether `smoke`, `full`, or both should be mandatory in CI versus manual release review.
 4. Only then return to deeper raw-model-quality work.

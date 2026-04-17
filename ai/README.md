@@ -26,6 +26,8 @@ This directory now contains the current model-training, decoding, evaluation, in
   - Measures latency across decode presets and batch sizes.
 - `release_check.py`
   - Runs the standard preset comparison plus release gates and optional baseline-regression checks.
+- `release_gate.py`
+  - Thin wrapper that packages fixed `smoke` and `full` release-gate profiles around `ai.release_check`.
 - `analyze_errors.py`
   - Prints and optionally saves failure cases under a chosen decode configuration.
 - `export_dataset.py`
@@ -88,6 +90,13 @@ python -m ai.release_check --checkpoint ai\checkpoints\transformer_large_current
 
 Use `--baseline-report ai\reports\release_check.json` together with thresholds such as `--max-production-fast-solved-rate-drop` or `--max-production-fast-board-ms-increase` when you want to gate regressions against a saved prior run.
 
+Release-gate wrapper:
+
+```powershell
+python -m ai.release_gate --profile smoke
+python -m ai.release_gate --profile full
+```
+
 Current recommended release baseline:
 
 ```powershell
@@ -98,6 +107,18 @@ Recommended future gate policy:
 - baseline report: `ai\reports\release_check_generalization_baseline.json`
 - `production_fast`: `min_solved_rate=0.999`, `max_board_ms=3.0`, `max_solved_rate_drop=0.001`, `max_board_ms_increase=1.0`
 - `production_pure`: `min_solved_rate=0.99`, `max_board_ms=30.0`, `max_solved_rate_drop=0.01`, `max_board_ms_increase=6.0`
+- `research_raw`: `min_blank_cell_accuracy=0.84`
+
+Current recommended full-manifest baseline:
+
+```powershell
+python -m ai.release_gate --profile full --mode baseline
+```
+
+Recommended full-gate policy:
+- baseline report: `ai\reports\release_check_generalization_full_baseline.json`
+- `production_fast`: `min_solved_rate=0.999`, `max_board_ms=2.0`, `max_solved_rate_drop=0.001`, `max_board_ms_increase=1.0`
+- `production_pure`: `min_solved_rate=0.995`, `max_board_ms=30.0`, `max_solved_rate_drop=0.01`, `max_board_ms_increase=6.0`
 - `research_raw`: `min_blank_cell_accuracy=0.84`
 
 ## How to think about the current system
