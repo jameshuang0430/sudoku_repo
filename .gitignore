@@ -12,3 +12,7 @@ venv/
 # Runtime-generated project artifacts
 data/
 ai/checkpoints/
+
+# Local scratch reports that are not milestone artifacts
+ai/reports/smoke_errors.json
+ai/reports/transformer_large_iterative_t060_k1_test_metrics.json
