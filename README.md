@@ -317,6 +317,10 @@ python -m ai.release_gate --profile full --mode baseline
 python -m ai.release_gate --profile full
 ```
 
+- Recommended usage split:
+  - Run `python -m ai.release_gate --profile smoke` on every PR.
+  - Run `python -m ai.release_gate --profile full` before release or when changing model / decode defaults.
+
 - Recommended full-gate thresholds:
   - `--min-production-fast-solved-rate 0.999`
   - `--min-production-pure-solved-rate 0.995`

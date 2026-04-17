@@ -235,6 +235,10 @@ Default compare command:
 python -m ai.release_gate --profile full
 ```
 
+Recommended usage split:
+- Run `python -m ai.release_gate --profile smoke` on every PR.
+- Run `python -m ai.release_gate --profile full` before release or when changing model / decode defaults.
+
 Recommended thresholds for comparison runs:
 - `production_fast`: `min_solved_rate=0.999`, `max_board_ms=2.0`, `max_solved_rate_drop=0.001`, `max_board_ms_increase=1.0`
 - `production_pure`: `min_solved_rate=0.995`, `max_board_ms=30.0`, `max_solved_rate_drop=0.01`, `max_board_ms_increase=6.0`
@@ -253,7 +257,7 @@ Current intended policy:
 - The repo still has untracked source/docs files that should be committed together so the documented product state matches the actual code state.
 - Raw argmax quality is still much weaker than the product presets.
 - The public docs should explain even more directly when users should choose `fast` versus `pure`.
-- The repo now has both smoke and full release-gate workflows; the next policy question is which one should run on every PR versus only before release.
+- The repo now has both smoke and full release-gate workflows; the current recommendation is smoke on every PR and full before release or when touching model/decode defaults.
 
 ## Recommended Next Steps
 
@@ -268,7 +272,7 @@ Reason:
 ### After that
 
 - Keep `production_fast` as the default path unless there is a strong non-solver-only requirement.
-- Decide whether `smoke`, `full`, or both should be mandatory in CI versus manual release review.
+- Keep `smoke` as the default per-PR gate and run `full` before release or when changing model/decode defaults.
 - If raw model quality becomes a real goal, evaluate future work by solved-board rate and conflict reduction, not by blank-cell accuracy alone.
 
 ## Notes For The Next Person

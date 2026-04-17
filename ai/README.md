@@ -115,6 +115,10 @@ Current recommended full-manifest baseline:
 python -m ai.release_gate --profile full --mode baseline
 ```
 
+Recommended usage split:
+- Run `python -m ai.release_gate --profile smoke` on every PR.
+- Run `python -m ai.release_gate --profile full` before release or when changing model / decode defaults.
+
 Recommended full-gate policy:
 - baseline report: `ai\reports\release_check_generalization_full_baseline.json`
 - `production_fast`: `min_solved_rate=0.999`, `max_board_ms=2.0`, `max_solved_rate_drop=0.001`, `max_board_ms_increase=1.0`
