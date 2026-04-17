@@ -1,0 +1,14 @@
+# Python bytecode and local caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Local virtual environments and machine-specific files
+.venv/
+venv/
+.env
+
+# Runtime-generated project artifacts
+data/
+ai/checkpoints/

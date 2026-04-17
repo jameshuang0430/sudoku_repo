@@ -1,10 +1,11 @@
-﻿import io
+import io
 import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
 from ai.infer import main as infer_main
+from ai.product import main as product_main
 from solver import generate_puzzle
 
 
@@ -83,6 +84,32 @@ class InferTests(unittest.TestCase):
         self.assertIn("preset_profile=research", rendered)
         self.assertIn("decode_mode=argmax", rendered)
         self.assertIn("prediction:", rendered)
+
+    def test_product_wrapper_defaults_to_fast_preset_and_checkpoint(self) -> None:
+        puzzle = "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            product_main(["--puzzle", puzzle])
+
+        rendered = output.getvalue()
+        self.assertIn("checkpoint=ai\\checkpoints\\transformer_large_current.best.pt", rendered)
+        self.assertIn("decode_preset=production_fast", rendered)
+        self.assertIn("preset_profile=latency_oriented", rendered)
+        self.assertIn("decode_mode=solver_guided", rendered)
+
+    def test_product_wrapper_maps_pure_preset(self) -> None:
+        puzzle = "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            product_main(["--preset", "pure", "--puzzle", puzzle])
+
+        rendered = output.getvalue()
+        self.assertIn("checkpoint=ai\\checkpoints\\transformer_large_current.best.pt", rendered)
+        self.assertIn("decode_preset=production_pure", rendered)
+        self.assertIn("preset_profile=accuracy_oriented", rendered)
+        self.assertIn("decode_mode=iterative", rendered)
 
 
 if __name__ == "__main__":
