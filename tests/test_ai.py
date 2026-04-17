@@ -1,4 +1,4 @@
-﻿import json
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -387,6 +387,11 @@ class AITests(unittest.TestCase):
             self.assertTrue(checkpoint_path.exists())
             self.assertTrue(best_checkpoint_path.exists())
             self.assertGreaterEqual(len(metrics["epochs"]), 1)
+            self.assertIn("run_metadata", metrics)
+            self.assertEqual(metrics["run_metadata"]["entrypoint"], "ai.train")
+            self.assertEqual(metrics["run_metadata"]["checkpoint_path"], str(checkpoint_path))
+            self.assertEqual(metrics["run_metadata"]["dataset_path"], str(dataset_path))
+            self.assertEqual(metrics["run_metadata"]["model_type"], "mlp")
             self.assertIn("best_epoch_metrics", metrics)
             self.assertIn("train_constraint_loss", metrics["epochs"][0])
             self.assertEqual(payload["config"]["resolved_train_size"], 6)
@@ -517,6 +522,12 @@ class AITests(unittest.TestCase):
 
             report = json.loads(report_path.read_text(encoding="utf-8"))
 
+        self.assertIn("run_metadata", report)
+        self.assertEqual(report["run_metadata"]["entrypoint"], "ai.eval")
+        self.assertEqual(report["run_metadata"]["checkpoint_path"], str(checkpoint_path))
+        self.assertEqual(report["run_metadata"]["dataset_path"], str(dataset_path))
+        self.assertEqual(report["run_metadata"]["decode_preset"], "production_pure")
+        self.assertEqual(report["run_metadata"]["decode_mode"], "iterative")
         self.assertIn("metrics", report)
         self.assertIn("mean_total_conflicts", report["metrics"])
         self.assertIn("mean_postprocess_change_count", report["metrics"])
@@ -594,6 +605,7 @@ class AITests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

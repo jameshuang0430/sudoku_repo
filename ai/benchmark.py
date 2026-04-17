@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
@@ -14,6 +14,7 @@ from .checkpoint import load_model_from_checkpoint
 from .dataset import SudokuDataset, SudokuFileDataset
 from .decode import decode_completed_boards
 from .presets import DECODE_PRESETS, DecodePreset
+from .run_metadata import build_run_metadata
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -67,6 +68,20 @@ def main(argv: Sequence[str] | None = None) -> None:
         "batch_sizes": args.batch_sizes,
         "decode_presets": args.decode_presets,
     }
+    run_metadata = build_run_metadata(
+        command_name="ai.benchmark",
+        argv=argv,
+        checkpoint_path=args.checkpoint,
+        dataset_path=args.dataset,
+        model_type=payload.get("model_type"),
+        extra={
+            "report_path": args.report,
+            "device": device.type,
+            "batch_sizes": args.batch_sizes,
+            "decode_presets": args.decode_presets,
+            "max_samples": args.max_samples,
+        },
+    )
 
     for result in results:
         print(
@@ -80,6 +95,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         with args.report.open("w", encoding="utf-8") as handle:
             json.dump(
                 {
+                    "run_metadata": run_metadata,
                     "benchmark_config": benchmark_config,
                     "training_config": training_config,
                     "results": results,
@@ -237,3 +253,6 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
 
 if __name__ == "__main__":
     main()
+
+
+

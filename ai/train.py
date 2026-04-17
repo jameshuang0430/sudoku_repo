@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader, Dataset, Subset
 from .dataset import SudokuDataset, SudokuFileDataset
 from .eval import evaluate_model
 from .model import create_model
+from .run_metadata import build_run_metadata
 
 
 UNIT_INDICES = torch.tensor(
@@ -190,6 +191,18 @@ def main(argv: Sequence[str] | None = None) -> None:
     print(f"saved_checkpoint={args.checkpoint}")
 
     metrics_output = resolve_metrics_output_path(args)
+    run_metadata = build_run_metadata(
+        command_name="ai.train",
+        argv=argv,
+        checkpoint_path=args.checkpoint,
+        dataset_path=args.dataset,
+        model_type=model_type,
+        extra={
+            "val_dataset_path": args.val_dataset,
+            "best_checkpoint_path": best_checkpoint_path,
+            "metrics_output_path": metrics_output,
+        },
+    )
     write_metrics_report(
         output_path=metrics_output,
         config=checkpoint_config,
@@ -197,6 +210,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         val_dataset_size=len(val_dataset),
         epoch_history=epoch_history,
         best_epoch_record=best_epoch_record,
+        run_metadata=run_metadata,
     )
     print(f"saved_metrics={metrics_output}")
 
@@ -248,12 +262,14 @@ def write_metrics_report(
     val_dataset_size: int,
     epoch_history: list[dict[str, float]],
     best_epoch_record: dict[str, float] | None,
+    run_metadata: dict[str, object],
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     final_metrics = epoch_history[-1] if epoch_history else None
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(
             {
+                "run_metadata": run_metadata,
                 "config": config,
                 "train_dataset_size": train_dataset_size,
                 "val_dataset_size": val_dataset_size,
@@ -408,4 +424,7 @@ def save_checkpoint(
 
 if __name__ == "__main__":
     main()
+
+
+
 

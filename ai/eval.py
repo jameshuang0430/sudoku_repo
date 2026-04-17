@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
@@ -14,6 +14,7 @@ from .checkpoint import load_model_from_checkpoint
 from .dataset import SudokuDataset, SudokuFileDataset
 from .decode import decode_completed_boards, ITERATIVE_CONFIDENCE_THRESHOLD
 from .presets import DECODE_PRESETS, apply_decode_preset, get_decode_preset
+from .run_metadata import build_run_metadata
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -59,6 +60,19 @@ def main(argv: Sequence[str] | None = None) -> None:
     evaluation_source = str(args.dataset) if args.dataset is not None else "generated"
     preset = get_decode_preset(args.decode_preset)
     preset_profile = preset.profile if preset is not None else "custom"
+    run_metadata = build_run_metadata(
+        command_name="ai.eval",
+        argv=argv,
+        checkpoint_path=args.checkpoint,
+        dataset_path=args.dataset,
+        model_type=payload.get("model_type"),
+        decode_preset=args.decode_preset,
+        decode_mode=args.decode_mode,
+        extra={
+            "report_path": args.report,
+            "device": device.type,
+        },
+    )
     print(
         "checkpoint={checkpoint} eval_source={eval_source} decode_preset={decode_preset} preset_profile={preset_profile} decode_mode={decode_mode} train_seed={train_seed} "
         "iterative_threshold={iterative_threshold:.2f} iterative_max_fills_per_round={iterative_max_fills_per_round} "
@@ -85,6 +99,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         with args.report.open("w", encoding="utf-8") as handle:
             json.dump(
                 {
+                    "run_metadata": run_metadata,
                     "metrics": metrics,
                     "training_config": training_config,
                     "evaluation_config": {
@@ -251,3 +266,6 @@ def _is_valid_completed_board(flat_board: list[int]) -> bool:
 
 if __name__ == "__main__":
     main()
+
+
+
