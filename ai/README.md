@@ -24,6 +24,8 @@ This directory now contains the current model-training, decoding, evaluation, in
   - Batch evaluation CLI with board-level metrics and decode-aware reporting.
 - `benchmark.py`
   - Measures latency across decode presets and batch sizes.
+- `release_check.py`
+  - Runs the standard preset comparison plus release gates and optional baseline-regression checks.
 - `analyze_errors.py`
   - Prints and optionally saves failure cases under a chosen decode configuration.
 - `export_dataset.py`
@@ -77,6 +79,26 @@ Latency benchmark:
 ```powershell
 python -m ai.benchmark --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --batch-sizes 1 32 --decode-presets research_raw research_iterative production_pure production_fast --max-samples 128 --repeats 3 --report ai\reports\transformer_large_generalization_latency.json
 ```
+
+Release check:
+
+```powershell
+python -m ai.release_check --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --report ai\reports\release_check.json
+```
+
+Use `--baseline-report ai\reports\release_check.json` together with thresholds such as `--max-production-fast-solved-rate-drop` or `--max-production-fast-board-ms-increase` when you want to gate regressions against a saved prior run.
+
+Current recommended release baseline:
+
+```powershell
+python -m ai.release_check --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --batch-size 1 --benchmark-max-samples 128 --benchmark-warmup-batches 1 --benchmark-repeats 3 --report ai\reports\release_check_generalization_baseline.json
+```
+
+Recommended future gate policy:
+- baseline report: `ai\reports\release_check_generalization_baseline.json`
+- `production_fast`: `min_solved_rate=0.999`, `max_board_ms=3.0`, `max_solved_rate_drop=0.001`, `max_board_ms_increase=1.0`
+- `production_pure`: `min_solved_rate=0.99`, `max_board_ms=30.0`, `max_solved_rate_drop=0.01`, `max_board_ms_increase=6.0`
+- `research_raw`: `min_blank_cell_accuracy=0.84`
 
 ## How to think about the current system
 

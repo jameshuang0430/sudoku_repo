@@ -92,6 +92,8 @@ Implemented under `ai/`:
   - Reports cell accuracy, solved-board rate, validity, conflict counts, postprocess changes, and decode iteration counts.
 - `ai/benchmark.py`
   - Benchmarks decode latency across presets and batch sizes.
+- `ai/release_check.py`
+  - Runs the standard preset comparison plus release gates and optional baseline-regression checks.
 - `ai/analyze_errors.py`
   - Compares failure cases under a chosen decode configuration.
 - `ai/export_dataset.py`
@@ -183,6 +185,30 @@ python -m ai.eval --checkpoint ai\checkpoints\transformer_large_current.best.pt 
 python -m ai.eval --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --decode-preset production_pure --report ai\reports\production_pure_eval.json
 ```
 
+### Standard release check
+
+```powershell
+python -m ai.release_check --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --report ai\reports\release_check.json
+```
+
+To enforce regression limits against a saved prior run, add `--baseline-report ai\reports\release_check.json` plus thresholds such as `--max-production-fast-solved-rate-drop` or `--max-production-fast-board-ms-increase`.
+
+### Official current baseline
+
+Baseline artifact:
+- `ai\reports\release_check_generalization_baseline.json`
+
+Baseline command:
+
+```powershell
+python -m ai.release_check --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --batch-size 1 --benchmark-max-samples 128 --benchmark-warmup-batches 1 --benchmark-repeats 3 --report ai\reports\release_check_generalization_baseline.json
+```
+
+Recommended thresholds for comparison runs:
+- `production_fast`: `min_solved_rate=0.999`, `max_board_ms=3.0`, `max_solved_rate_drop=0.001`, `max_board_ms_increase=1.0`
+- `production_pure`: `min_solved_rate=0.99`, `max_board_ms=30.0`, `max_solved_rate_drop=0.01`, `max_board_ms_increase=6.0`
+- `research_raw`: `min_blank_cell_accuracy=0.84`
+
 ## Repo Artifact Policy
 
 Current intended policy:
@@ -196,7 +222,7 @@ Current intended policy:
 - The repo still has untracked source/docs files that should be committed together so the documented product state matches the actual code state.
 - Raw argmax quality is still much weaker than the product presets.
 - The public docs should explain even more directly when users should choose `fast` versus `pure`.
-- A release-check workflow that compares `production_fast` and `production_pure` on the same manifest would still be useful.
+- The release-check baseline is now chosen, but the next policy question is whether this 128-sample smoke gate is enough on its own or should be paired with a slower full-manifest comparison.
 
 ## Recommended Next Steps
 
@@ -211,7 +237,7 @@ Reason:
 ### After that
 
 - Keep `production_fast` as the default path unless there is a strong non-solver-only requirement.
-- Add one release-check workflow that compares `production_fast` and `production_pure` on the same manifest.
+- Decide whether to keep the current 128-sample `ai.release_check` baseline as the only release gate or add a second slower full-manifest gate.
 - If raw model quality becomes a real goal, evaluate future work by solved-board rate and conflict reduction, not by blank-cell accuracy alone.
 
 ## Notes For The Next Person

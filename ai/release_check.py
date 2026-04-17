@@ -39,11 +39,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--benchmark-repeats", type=int, default=3)
     parser.add_argument("--tests-command", nargs=argparse.REMAINDER)
     parser.add_argument("--skip-tests", action="store_true")
+    parser.add_argument("--baseline-report", type=Path)
     parser.add_argument("--min-production-fast-solved-rate", type=float, default=0.95)
     parser.add_argument("--min-production-pure-solved-rate", type=float, default=0.90)
     parser.add_argument("--min-research-raw-blank-cell-accuracy", type=float, default=0.0)
     parser.add_argument("--max-production-fast-board-ms", type=float, default=5.0)
     parser.add_argument("--max-production-pure-board-ms", type=float, default=50.0)
+    parser.add_argument("--max-production-fast-solved-rate-drop", type=float)
+    parser.add_argument("--max-production-pure-solved-rate-drop", type=float)
+    parser.add_argument("--max-production-fast-board-ms-increase", type=float)
+    parser.add_argument("--max-production-pure-board-ms-increase", type=float)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args(argv)
     args.tests_command = list(args.tests_command) if args.tests_command else list(DEFAULT_TESTS_COMMAND)
@@ -67,8 +72,10 @@ def main(argv: Sequence[str] | None = None) -> None:
         benchmark_warmup_batches=args.benchmark_warmup_batches,
         benchmark_repeats=args.benchmark_repeats,
     )
+    baseline_summary = load_baseline_summary(args.baseline_report, comparisons)
     tests_result = run_tests(args.tests_command, skip=args.skip_tests)
     gates = evaluate_release_gates(comparisons, args)
+    gates.extend(evaluate_baseline_gates(baseline_summary, args))
     overall_passed = tests_result["passed"] and all(gate["passed"] for gate in gates)
 
     release_config = {
@@ -85,12 +92,17 @@ def main(argv: Sequence[str] | None = None) -> None:
         "benchmark_repeats": args.benchmark_repeats,
         "tests_command": args.tests_command,
         "skip_tests": args.skip_tests,
+        "baseline_report": str(args.baseline_report) if args.baseline_report is not None else None,
         "thresholds": {
             "min_production_fast_solved_rate": args.min_production_fast_solved_rate,
             "min_production_pure_solved_rate": args.min_production_pure_solved_rate,
             "min_research_raw_blank_cell_accuracy": args.min_research_raw_blank_cell_accuracy,
             "max_production_fast_board_ms": args.max_production_fast_board_ms,
             "max_production_pure_board_ms": args.max_production_pure_board_ms,
+            "max_production_fast_solved_rate_drop": args.max_production_fast_solved_rate_drop,
+            "max_production_pure_solved_rate_drop": args.max_production_pure_solved_rate_drop,
+            "max_production_fast_board_ms_increase": args.max_production_fast_board_ms_increase,
+            "max_production_pure_board_ms_increase": args.max_production_pure_board_ms_increase,
         },
     }
     run_metadata = build_run_metadata(
@@ -101,6 +113,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         model_type=payload.get("model_type"),
         extra={
             "report_path": args.report,
+            "baseline_report_path": args.baseline_report,
             "device": device.type,
             "presets": args.presets,
             "batch_size": args.batch_size,
@@ -118,6 +131,20 @@ def main(argv: Sequence[str] | None = None) -> None:
                 threshold=gate["threshold"],
             )
         )
+    if baseline_summary is not None:
+        for preset_summary in baseline_summary["comparisons"]:
+            solved_rate_delta = preset_summary["metrics"]["board_solved_rate"]["delta"]
+            conflict_delta = preset_summary["metrics"]["mean_total_conflicts"]["delta"]
+            latency_delta = preset_summary["latency"]["mean_board_duration_ms"]["delta"]
+            print(
+                "baseline_delta preset={preset} solved_rate_delta={solved_rate_delta:.4f} "
+                "mean_total_conflicts_delta={conflict_delta:.4f} mean_board_ms_delta={latency_delta:.4f}".format(
+                    preset=preset_summary["preset"],
+                    solved_rate_delta=solved_rate_delta,
+                    conflict_delta=conflict_delta,
+                    latency_delta=latency_delta,
+                )
+            )
     print(f"release_check_passed={overall_passed}")
 
     if args.report is not None:
@@ -130,6 +157,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                     "training_config": payload.get("config", {}),
                     "tests": tests_result,
                     "comparisons": comparisons,
+                    "baseline": baseline_summary,
                     "gates": gates,
                     "passed": overall_passed,
                 },
@@ -181,6 +209,84 @@ def run_tests(command: Sequence[str], *, skip: bool) -> dict[str, Any]:
     }
 
 
+def load_baseline_summary(
+    baseline_report_path: Path | None,
+    comparisons: Sequence[dict[str, Any]],
+) -> dict[str, Any] | None:
+    if baseline_report_path is None:
+        return None
+
+    baseline_report = json.loads(baseline_report_path.read_text(encoding="utf-8"))
+    baseline_comparisons = baseline_report.get("comparisons")
+    if not isinstance(baseline_comparisons, list):
+        raise ValueError("Baseline report must contain a top-level 'comparisons' list.")
+
+    baseline_by_preset = {
+        comparison.get("preset"): comparison
+        for comparison in baseline_comparisons
+        if isinstance(comparison, dict) and comparison.get("preset") is not None
+    }
+    missing_presets: list[str] = []
+    matched_summaries: list[dict[str, Any]] = []
+    for comparison in comparisons:
+        preset_name = comparison["preset"]
+        baseline_comparison = baseline_by_preset.get(preset_name)
+        if baseline_comparison is None:
+            missing_presets.append(preset_name)
+            continue
+        matched_summaries.append(build_baseline_delta_summary(comparison, baseline_comparison))
+
+    baseline_run_metadata = baseline_report.get("run_metadata")
+    return {
+        "path": str(baseline_report_path),
+        "run_metadata": baseline_run_metadata,
+        "comparisons": matched_summaries,
+        "missing_presets": missing_presets,
+    }
+
+
+def build_baseline_delta_summary(
+    current: dict[str, Any],
+    baseline: dict[str, Any],
+) -> dict[str, Any]:
+    metric_names = [
+        "blank_cell_accuracy",
+        "board_solved_rate",
+        "valid_board_rate",
+        "mean_total_conflicts",
+        "mean_postprocess_change_count",
+        "mean_decode_iteration_count",
+    ]
+    latency_names = [
+        "mean_board_duration_ms",
+        "throughput_boards_per_second",
+    ]
+    return {
+        "preset": current["preset"],
+        "metrics": {
+            name: make_delta_entry(current["metrics"].get(name), baseline.get("metrics", {}).get(name))
+            for name in metric_names
+        },
+        "latency": {
+            name: make_delta_entry(current["latency"].get(name), baseline.get("latency", {}).get(name))
+            for name in latency_names
+        },
+    }
+
+
+def make_delta_entry(current_value: Any, baseline_value: Any) -> dict[str, float | None]:
+    current_float = float(current_value) if current_value is not None else None
+    baseline_float = float(baseline_value) if baseline_value is not None else None
+    delta = None
+    if current_float is not None and baseline_float is not None:
+        delta = current_float - baseline_float
+    return {
+        "current": current_float,
+        "baseline": baseline_float,
+        "delta": delta,
+    }
+
+
 def evaluate_release_gates(comparisons: Sequence[dict[str, Any]], args: argparse.Namespace) -> list[dict[str, Any]]:
     comparison_by_preset = {comparison["preset"]: comparison for comparison in comparisons}
     gates: list[dict[str, Any]] = []
@@ -223,6 +329,56 @@ def evaluate_release_gates(comparisons: Sequence[dict[str, Any]], args: argparse
     return gates
 
 
+def evaluate_baseline_gates(
+    baseline_summary: dict[str, Any] | None,
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
+    if baseline_summary is None:
+        return []
+
+    thresholds = {
+        "production_fast": {
+            "solved_rate_drop": args.max_production_fast_solved_rate_drop,
+            "board_ms_increase": args.max_production_fast_board_ms_increase,
+        },
+        "production_pure": {
+            "solved_rate_drop": args.max_production_pure_solved_rate_drop,
+            "board_ms_increase": args.max_production_pure_board_ms_increase,
+        },
+    }
+    summary_by_preset = {summary["preset"]: summary for summary in baseline_summary["comparisons"]}
+    gates: list[dict[str, Any]] = []
+
+    for preset_name, preset_thresholds in thresholds.items():
+        preset_summary = summary_by_preset.get(preset_name)
+        if preset_summary is None:
+            continue
+        solved_rate_drop_limit = preset_thresholds["solved_rate_drop"]
+        if solved_rate_drop_limit is not None:
+            solved_rate_delta = preset_summary["metrics"]["board_solved_rate"]["delta"]
+            observed_drop = -solved_rate_delta if solved_rate_delta is not None else float("inf")
+            _append_gate(
+                gates,
+                name=f"{preset_name}_max_solved_rate_drop",
+                observed=observed_drop,
+                threshold=solved_rate_drop_limit,
+                comparator="<=",
+            )
+        board_ms_increase_limit = preset_thresholds["board_ms_increase"]
+        if board_ms_increase_limit is not None:
+            board_ms_delta = preset_summary["latency"]["mean_board_duration_ms"]["delta"]
+            observed_increase = board_ms_delta if board_ms_delta is not None else float("inf")
+            _append_gate(
+                gates,
+                name=f"{preset_name}_max_board_ms_increase",
+                observed=observed_increase,
+                threshold=board_ms_increase_limit,
+                comparator="<=",
+            )
+
+    return gates
+
+
 def _append_gate(
     gates: list[dict[str, Any]],
     *,
@@ -262,10 +418,15 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
     missing_presets = sorted(required_presets.difference(args.presets))
     if missing_presets:
         parser.error("--presets must include production_fast, production_pure, and research_raw.")
+    regression_thresholds = [
+        args.max_production_fast_solved_rate_drop,
+        args.max_production_pure_solved_rate_drop,
+        args.max_production_fast_board_ms_increase,
+        args.max_production_pure_board_ms_increase,
+    ]
+    if any(threshold is not None for threshold in regression_thresholds) and args.baseline_report is None:
+        parser.error("Regression thresholds require --baseline-report.")
 
 
 if __name__ == "__main__":
     main()
-
-
-

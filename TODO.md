@@ -41,9 +41,11 @@ Acceptance criteria:
 
 ## P2: Add A Release Check Workflow
 
-- [ ] Add one repeatable evaluation command or script that compares `production_fast` and `production_pure` on the same manifest.
-- [ ] Store the resulting metrics in a predictable report location.
-- [ ] Document how to use that comparison before changing decode defaults.
+- [x] Add one repeatable evaluation command or script that compares `production_fast` and `production_pure` on the same manifest.
+- [x] Store the resulting metrics in a predictable report location.
+- [x] Document how to use that comparison before changing decode defaults.
+- [x] Decide which saved release-check report becomes the official baseline and what regression thresholds should fail CI or release review.
+- [ ] Decide whether the current 128-sample smoke gate should remain the only release gate or be paired with a slower full-manifest comparison.
 
 Acceptance criteria:
 - There is one standard way to answer "did the recommended preset regress?"
@@ -68,5 +70,5 @@ Acceptance criteria:
 
 1. Finish repo cleanup and commit the current product-facing state.
 2. Keep `ai.product` as the top documented entrypoint and clarify `fast` versus `pure`.
-3. Add a standard release-check workflow for the two production presets.
+3. Decide whether to keep the current smoke-gate baseline alone or add a second full-manifest release gate.
 4. Only then return to deeper raw-model-quality work.

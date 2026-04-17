@@ -1,0 +1,257 @@
+{
+  "run_metadata": {
+    "run_id": "20260417_072250-0d79a7a0",
+    "utc_timestamp": "2026-04-17T07:22:50Z",
+    "git_commit": "3d01967ab52f94d91968a048f5d0dcb910827590",
+    "entrypoint": "ai.release_check",
+    "argv": [
+      "--checkpoint",
+      "ai\\checkpoints\\transformer_large_current.best.pt",
+      "--dataset",
+      "data\\manifests_generalization\\test.jsonl",
+      "--batch-size",
+      "1",
+      "--benchmark-max-samples",
+      "128",
+      "--benchmark-warmup-batches",
+      "1",
+      "--benchmark-repeats",
+      "3",
+      "--report",
+      "ai\\reports\\release_check_generalization_baseline.json"
+    ],
+    "command": "C:\\Users\\ICHANHUANG\\AppData\\Local\\Programs\\Python\\Python313\\python.exe -m ai.release_check --checkpoint ai\\checkpoints\\transformer_large_current.best.pt --dataset data\\manifests_generalization\\test.jsonl --batch-size 1 --benchmark-max-samples 128 --benchmark-warmup-batches 1 --benchmark-repeats 3 --report ai\\reports\\release_check_generalization_baseline.json",
+    "checkpoint_path": "ai\\checkpoints\\transformer_large_current.best.pt",
+    "dataset_path": "data\\manifests_generalization\\test.jsonl",
+    "model_type": "transformer",
+    "report_path": "ai\\reports\\release_check_generalization_baseline.json",
+    "device": "cpu",
+    "presets": [
+      "production_fast",
+      "production_pure",
+      "research_raw"
+    ],
+    "batch_size": 1
+  },
+  "release_config": {
+    "checkpoint": "ai\\checkpoints\\transformer_large_current.best.pt",
+    "dataset": "data\\manifests_generalization\\test.jsonl",
+    "dataset_size": 128,
+    "requested_dataset_size": 32,
+    "blanks": 40,
+    "seed": 7,
+    "batch_size": 1,
+    "presets": [
+      "production_fast",
+      "production_pure",
+      "research_raw"
+    ],
+    "benchmark_max_samples": 128,
+    "benchmark_warmup_batches": 1,
+    "benchmark_repeats": 3,
+    "tests_command": [
+      "C:\\Users\\ICHANHUANG\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-v"
+    ],
+    "skip_tests": false,
+    "baseline_report": null,
+    "thresholds": {
+      "min_production_fast_solved_rate": 0.95,
+      "min_production_pure_solved_rate": 0.9,
+      "min_research_raw_blank_cell_accuracy": 0.0,
+      "max_production_fast_board_ms": 5.0,
+      "max_production_pure_board_ms": 50.0,
+      "max_production_fast_solved_rate_drop": null,
+      "max_production_pure_solved_rate_drop": null,
+      "max_production_fast_board_ms_increase": null,
+      "max_production_pure_board_ms_increase": null
+    }
+  },
+  "training_config": {
+    "train_size": 512,
+    "val_size": 128,
+    "resolved_train_size": 4096,
+    "resolved_val_size": 512,
+    "blanks": 40,
+    "dataset": "data\\manifests_large\\train.jsonl",
+    "val_dataset": "data\\manifests_large\\val.jsonl",
+    "model_type": "transformer",
+    "batch_size": 32,
+    "epochs": 20,
+    "learning_rate": 0.001,
+    "seed": 7,
+    "early_stopping_patience": 5,
+    "best_epoch": 20,
+    "stopped_early": false
+  },
+  "tests": {
+    "command": [
+      "C:\\Users\\ICHANHUANG\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-v"
+    ],
+    "returncode": 0,
+    "passed": true,
+    "stdout": "checkpoint=C:\\WINDOWS\\TEMP\\tmptym4z_0o\\model.pt eval_source=C:\\WINDOWS\\TEMP\\tmptym4z_0o\\test.jsonl decode_preset=production_pure preset_profile=accuracy_oriented decode_mode=iterative train_seed=7 iterative_threshold=0.75 iterative_max_fills_per_round=2 blank_cell_acc=0.2000 board_solved_rate=0.0000 valid_board_rate=0.0000 mean_mismatch_count=8.00 mean_total_conflicts=22.75 mean_postprocess_change_count=3.25 mean_decode_iteration_count=10.00\npreset_summary=Strict non-solver iterative decoding tuned for accuracy.\nsaved_report=C:\\WINDOWS\\TEMP\\tmptym4z_0o\\eval_report.json\nsaved_plot=C:\\WINDOWS\\TEMP\\tmpnoi6m8en\\eval_report.png\nsaved_plot=C:\\WINDOWS\\TEMP\\tmpi6ie1rqm\\train_metrics.png\nepoch=1 train_loss=2.2245 train_ce_loss=2.2148 train_constraint_loss=0.0974 blank_cell_acc=0.0000 board_solved_rate=0.0000 valid_board_rate=0.0000\nsaved_best_checkpoint=C:\\WINDOWS\\TEMP\\tmpa_cdz0vm\\best.pt\nepoch=2 train_loss=1.8615 train_ce_loss=1.8528 train_constraint_loss=0.0871 blank_cell_acc=0.0500 board_solved_rate=0.0000 valid_board_rate=0.0000\nsaved_best_checkpoint=C:\\WINDOWS\\TEMP\\tmpa_cdz0vm\\best.pt\nepoch=3 train_loss=0.8736 train_ce_loss=0.8692 train_constraint_loss=0.0443 blank_cell_acc=0.0500 board_solved_rate=0.0000 valid_board_rate=0.0000\nearly_stopping_triggered=1 epoch=3 best_epoch=2 patience=1\nsaved_checkpoint=C:\\WINDOWS\\TEMP\\tmpa_cdz0vm\\checkpoint.pt\nsaved_metrics=C:\\WINDOWS\\TEMP\\tmpa_cdz0vm\\metrics.json\nepoch=1 train_loss=2.2033 train_ce_loss=2.2033 train_constraint_loss=0.0000 blank_cell_acc=0.1000 board_solved_rate=0.0000 valid_board_rate=0.0000\nsaved_best_checkpoint=C:\\WINDOWS\\TEMP\\tmpjxm3kr3a\\checkpoint.best.pt\nsaved_checkpoint=C:\\WINDOWS\\TEMP\\tmpjxm3kr3a\\checkpoint.pt\nsaved_metrics=C:\\WINDOWS\\TEMP\\tmpjxm3kr3a\\checkpoint.metrics.json\nepoch=1 train_loss=2.2770 train_ce_loss=2.2719 train_constraint_loss=0.1005 blank_cell_acc=0.1500 board_solved_rate=0.0000 valid_board_rate=0.0000\nsaved_best_checkpoint=C:\\WINDOWS\\TEMP\\tmpqditgdm2\\transformer.best.pt\nsaved_checkpoint=C:\\WINDOWS\\TEMP\\tmpqditgdm2\\transformer.pt\nsaved_metrics=C:\\WINDOWS\\TEMP\\tmpqditgdm2\\transformer.metrics.json\npreset=argmax decode_mode=argmax batch_size=1 samples=4 mean_total_ms=0.48 mean_board_ms=0.12 throughput=8295.31 boards_per_sec\npreset=argmax decode_mode=argmax batch_size=2 samples=4 mean_total_ms=0.24 mean_board_ms=0.06 throughput=16413.62 boards_per_sec\npreset=production_pure decode_mode=iterative batch_size=1 samples=4 mean_total_ms=5.63 mean_board_ms=1.41 throughput=711.05 boards_per_sec\npreset=production_pure decode_mode=iterative batch_size=2 samples=4 mean_total_ms=5.37 mean_board_ms=1.34 throughput=745.17 boards_per_sec\nsaved_report=C:\\WINDOWS\\TEMP\\tmppn1p9na6\\benchmark_report.json\npreset=production_fast profile=latency_oriented decode_mode=solver_guided blank_cell_acc=1.0000 board_solved_rate=1.0000 valid_board_rate=1.0000 mean_total_conflicts=0.00 mean_board_ms=0.20 throughput=4942.54 boards_per_sec\npreset=production_pure profile=accuracy_oriented decode_mode=iterative blank_cell_acc=0.1500 board_solved_rate=0.0000 valid_board_rate=0.0000 mean_total_conflicts=22.50 mean_board_ms=1.02 throughput=975.97 boards_per_sec\npreset=research_raw profile=research decode_mode=argmax blank_cell_acc=0.1250 board_solved_rate=0.0000 valid_board_rate=0.0000 mean_total_conflicts=22.50 mean_board_ms=0.05 throughput=20283.98 boards_per_sec\nsaved_report=C:\\WINDOWS\\TEMP\\tmpvkr1b06z\\compare_report.json\ntests_passed=True tests_returncode=0\ngate=production_fast_min_solved_rate passed=False comparator=>= observed=1.0000 threshold=1.1000\ngate=production_pure_min_solved_rate passed=True comparator=>= observed=0.0000 threshold=0.0000\ngate=research_raw_min_blank_cell_accuracy passed=True comparator=>= observed=0.0250 threshold=0.0000\ngate=production_fast_max_board_ms passed=True comparator=<= observed=0.2262 threshold=999.0000\ngate=production_pure_max_board_ms passed=True comparator=<= observed=1.1566 threshold=999.0000\nrelease_check_passed=False\nsaved_report=C:\\WINDOWS\\TEMP\\tmpca7lizxv\\release_report.json\ntests_passed=True tests_returncode=0\ngate=production_fast_min_solved_rate passed=True comparator=>= observed=1.0000 threshold=0.0000\ngate=production_pure_min_solved_rate passed=True comparator=>= observed=0.0000 threshold=0.0000\ngate=research_raw_min_blank_cell_accuracy passed=True comparator=>= observed=0.1250 threshold=0.0000\ngate=production_fast_max_board_ms passed=True comparator=<= observed=0.1962 threshold=999.0000\ngate=production_pure_max_board_ms passed=True comparator=<= observed=1.2378 threshold=999.0000\ngate=production_fast_max_solved_rate_drop passed=True comparator=<= observed=-1.0000 threshold=1.0000\ngate=production_fast_max_board_ms_increase passed=True comparator=<= observed=-998.8038 threshold=1.0000\ngate=production_pure_max_solved_rate_drop passed=True comparator=<= observed=-0.0000 threshold=1.0000\ngate=production_pure_max_board_ms_increase passed=True comparator=<= observed=-997.7622 threshold=1.0000\nbaseline_delta preset=production_fast solved_rate_delta=1.0000 mean_total_conflicts_delta=-12.0000 mean_board_ms_delta=-998.8038\nbaseline_delta preset=production_pure solved_rate_delta=0.0000 mean_total_conflicts_delta=10.7500 mean_board_ms_delta=-997.7622\nbaseline_delta preset=research_raw solved_rate_delta=0.0000 mean_total_conflicts_delta=3.7500 mean_board_ms_delta=-998.9244\nrelease_check_passed=True\nsaved_report=C:\\WINDOWS\\TEMP\\tmp5g54zwh0\\release_report.json\ntests_passed=True tests_returncode=0\ngate=production_fast_min_solved_rate passed=True comparator=>= observed=1.0000 threshold=0.0000\ngate=production_pure_min_solved_rate passed=True comparator=>= observed=0.0000 threshold=0.0000\ngate=research_raw_min_blank_cell_accuracy passed=True comparator=>= observed=0.1000 threshold=0.0000\ngate=production_fast_max_board_ms passed=True comparator=<= observed=0.2168 threshold=999.0000\ngate=production_pure_max_board_ms passed=True comparator=<= observed=1.0170 threshold=999.0000\nrelease_check_passed=True\nsaved_report=C:\\WINDOWS\\TEMP\\tmpon303fqv\\release_report.json\n",
+    "stderr": "test_compose_completed_boards_preserves_givens (test_ai.AITests.test_compose_completed_boards_preserves_givens) ... ok\ntest_constraint_consistency_penalty_is_positive_for_duplicate_prediction (test_ai.AITests.test_constraint_consistency_penalty_is_positive_for_duplicate_prediction) ... ok\ntest_constraint_consistency_penalty_is_zero_for_valid_completed_board (test_ai.AITests.test_constraint_consistency_penalty_is_zero_for_valid_completed_board) ... ok\ntest_dataset_sample_shapes (test_ai.AITests.test_dataset_sample_shapes) ... ok\ntest_decode_completed_boards_iterative_max_fills_per_round_limits_progress (test_ai.AITests.test_decode_completed_boards_iterative_max_fills_per_round_limits_progress) ... ok\ntest_decode_completed_boards_iterative_rechecks_consistency_within_round (test_ai.AITests.test_decode_completed_boards_iterative_rechecks_consistency_within_round) ... ok\ntest_decode_completed_boards_iterative_uses_multiple_rounds (test_ai.AITests.test_decode_completed_boards_iterative_uses_multiple_rounds) ... ok\ntest_decode_completed_boards_solver_guided_repairs_wrong_argmax (test_ai.AITests.test_decode_completed_boards_solver_guided_repairs_wrong_argmax) ... ok\ntest_eval_main_supports_dataset_file (test_ai.AITests.test_eval_main_supports_dataset_file) ... ok\ntest_evaluate_model_reports_mismatch_and_conflict_metrics (test_ai.AITests.test_evaluate_model_reports_mismatch_and_conflict_metrics) ... ok\ntest_file_dataset_loads_inline_records (test_ai.AITests.test_file_dataset_loads_inline_records) ... ok\ntest_file_dataset_loads_path_records (test_ai.AITests.test_file_dataset_loads_path_records) ... ok\ntest_flat_to_board_rejects_wrong_length (test_ai.AITests.test_flat_to_board_rejects_wrong_length) ... ok\ntest_load_model_from_checkpoint_restores_model (test_ai.AITests.test_load_model_from_checkpoint_restores_model) ... ok\ntest_load_model_from_checkpoint_restores_transformer (test_ai.AITests.test_load_model_from_checkpoint_restores_transformer) ... ok\ntest_model_forward_shape (test_ai.AITests.test_model_forward_shape) ... ok\ntest_plot_main_supports_evaluation_report (test_ai.AITests.test_plot_main_supports_evaluation_report) ... ok\ntest_plot_main_supports_training_report (test_ai.AITests.test_plot_main_supports_training_report) ... ok\ntest_sample_to_record_returns_9x9_boards (test_ai.AITests.test_sample_to_record_returns_9x9_boards) ... ok\ntest_solve_board_with_scores_validates_shape (test_ai.AITests.test_solve_board_with_scores_validates_shape) ... ok\ntest_summarize_board_violations_counts_row_column_and_box_conflicts (test_ai.AITests.test_summarize_board_violations_counts_row_column_and_box_conflicts) ... ok\ntest_train_main_supports_dataset_file (test_ai.AITests.test_train_main_supports_dataset_file) ... ok\ntest_train_main_supports_separate_val_dataset (test_ai.AITests.test_train_main_supports_separate_val_dataset) ... ok\ntest_train_main_supports_transformer_model (test_ai.AITests.test_train_main_supports_transformer_model) ... ok\ntest_transformer_forward_shape (test_ai.AITests.test_transformer_forward_shape) ... ok\ntest_benchmark_main_writes_report (test_benchmark.BenchmarkTests.test_benchmark_main_writes_report) ... ok\ntest_export_dataset_command_writes_split_manifests (test_cli.SolverCLITests.test_export_dataset_command_writes_split_manifests) ... ok\ntest_export_dataset_command_writes_training_files_and_manifest (test_cli.SolverCLITests.test_export_dataset_command_writes_training_files_and_manifest) ... ok\ntest_generate_command_can_print_solution (test_cli.SolverCLITests.test_generate_command_can_print_solution) ... ok\ntest_generate_command_can_write_puzzle_file (test_cli.SolverCLITests.test_generate_command_can_write_puzzle_file) ... ok\ntest_generate_command_can_write_solution_file (test_cli.SolverCLITests.test_generate_command_can_write_solution_file) ... ok\ntest_parse_puzzle_text_rejects_wrong_length (test_cli.SolverCLITests.test_parse_puzzle_text_rejects_wrong_length) ... ok\ntest_parse_puzzle_text_supports_dots_and_whitespace (test_cli.SolverCLITests.test_parse_puzzle_text_supports_dots_and_whitespace) ... ok\ntest_parse_puzzle_text_supports_pretty_printed_board (test_cli.SolverCLITests.test_parse_puzzle_text_supports_pretty_printed_board) ... ok\ntest_solve_command_prints_solution (test_cli.SolverCLITests.test_solve_command_prints_solution) ... ok\ntest_solve_command_supports_file_input_and_uniqueness (test_cli.SolverCLITests.test_solve_command_supports_file_input_and_uniqueness) ... ok\ntest_solve_command_supports_stdin (test_cli.SolverCLITests.test_solve_command_supports_stdin) ... ok\ntest_compare_presets_main_writes_report (test_compare_presets.ComparePresetsTests.test_compare_presets_main_writes_report) ... ok\ntest_infer_main_defaults_to_production_fast (test_infer.InferTests.test_infer_main_defaults_to_production_fast) ... ok\ntest_infer_main_supports_file_input (test_infer.InferTests.test_infer_main_supports_file_input) ... ok\ntest_infer_main_supports_inline_puzzle (test_infer.InferTests.test_infer_main_supports_inline_puzzle) ... ok\ntest_product_wrapper_defaults_to_fast_preset_and_checkpoint (test_infer.InferTests.test_product_wrapper_defaults_to_fast_preset_and_checkpoint) ... ok\ntest_product_wrapper_maps_pure_preset (test_infer.InferTests.test_product_wrapper_maps_pure_preset) ... ok\ntest_release_check_main_fails_when_gate_is_not_met (test_release_check.ReleaseCheckTests.test_release_check_main_fails_when_gate_is_not_met) ... ok\ntest_release_check_main_writes_baseline_comparison_and_regression_gates (test_release_check.ReleaseCheckTests.test_release_check_main_writes_baseline_comparison_and_regression_gates) ... ok\ntest_release_check_main_writes_report_and_passes (test_release_check.ReleaseCheckTests.test_release_check_main_writes_report_and_passes) ... ok\ntest_release_check_requires_baseline_report_when_regression_threshold_is_set (test_release_check.ReleaseCheckTests.test_release_check_requires_baseline_report_when_regression_threshold_is_set) ... usage: python.exe -m unittest [-h] --checkpoint CHECKPOINT [--dataset DATASET]\n                              [--dataset-size DATASET_SIZE] [--blanks BLANKS]\n                              [--seed SEED] [--batch-size BATCH_SIZE]\n                              [--presets {argmax,iterative,iterative_strict,production_fast,production_pure,research_iterative,research_raw,solver_guided} [{argmax,iterative,iterative_strict,production_fast,production_pure,research_iterative,research_raw,solver_guided} ...]]\n                              [--benchmark-max-samples BENCHMARK_MAX_SAMPLES]\n                              [--benchmark-warmup-batches BENCHMARK_WARMUP_BATCHES]\n                              [--benchmark-repeats BENCHMARK_REPEATS]\n                              [--tests-command ...] [--skip-tests]\n                              [--baseline-report BASELINE_REPORT]\n                              [--min-production-fast-solved-rate MIN_PRODUCTION_FAST_SOLVED_RATE]\n                              [--min-production-pure-solved-rate MIN_PRODUCTION_PURE_SOLVED_RATE]\n                              [--min-research-raw-blank-cell-accuracy MIN_RESEARCH_RAW_BLANK_CELL_ACCURACY]\n                              [--max-production-fast-board-ms MAX_PRODUCTION_FAST_BOARD_MS]\n                              [--max-production-pure-board-ms MAX_PRODUCTION_PURE_BOARD_MS]\n                              [--max-production-fast-solved-rate-drop MAX_PRODUCTION_FAST_SOLVED_RATE_DROP]\n                              [--max-production-pure-solved-rate-drop MAX_PRODUCTION_PURE_SOLVED_RATE_DROP]\n                              [--max-production-fast-board-ms-increase MAX_PRODUCTION_FAST_BOARD_MS_INCREASE]\n                              [--max-production-pure-board-ms-increase MAX_PRODUCTION_PURE_BOARD_MS_INCREASE]\n                              [--report REPORT]\npython.exe -m unittest: error: Regression thresholds require --baseline-report.\nok\ntest_count_solutions_reports_unique_puzzle (test_solver.SolverTests.test_count_solutions_reports_unique_puzzle) ... ok\ntest_export_puzzle_dataset_splits_writes_split_files_and_manifests (test_solver.SolverTests.test_export_puzzle_dataset_splits_writes_split_files_and_manifests) ... ok\ntest_export_puzzle_dataset_writes_training_files (test_solver.SolverTests.test_export_puzzle_dataset_writes_training_files) ... ok\ntest_generate_puzzle_returns_unique_training_pair (test_solver.SolverTests.test_generate_puzzle_returns_unique_training_pair) ... ok\ntest_generate_solved_board_returns_valid_complete_board (test_solver.SolverTests.test_generate_solved_board_returns_valid_complete_board) ... ok\ntest_solve_board_returns_expected_solution (test_solver.SolverTests.test_solve_board_returns_expected_solution) ... ok\ntest_unsolvable_puzzle_raises (test_solver.SolverTests.test_unsolvable_puzzle_raises) ... ok\ntest_unsolved_board_string_uses_dots_for_blanks (test_solver.SolverTests.test_unsolved_board_string_uses_dots_for_blanks) ... ok\ntest_validate_board_rejects_duplicates (test_solver.SolverTests.test_validate_board_rejects_duplicates) ... ok\n\n----------------------------------------------------------------------\nRan 56 tests in 2.260s\n\nOK\n",
+    "skipped": false
+  },
+  "comparisons": [
+    {
+      "preset": "production_fast",
+      "preset_profile": "latency_oriented",
+      "preset_summary": "Solver-guided production path optimized for exact repair and lower CPU latency.",
+      "decode_mode": "solver_guided",
+      "iterative_threshold": 0.5,
+      "iterative_max_fills_per_round": null,
+      "metrics": {
+        "blank_cell_accuracy": 1.0,
+        "board_solved_rate": 1.0,
+        "valid_board_rate": 1.0,
+        "mean_mismatch_count": 0.0,
+        "mean_row_conflicts": 0.0,
+        "mean_col_conflicts": 0.0,
+        "mean_box_conflicts": 0.0,
+        "mean_total_conflicts": 0.0,
+        "mean_postprocess_change_count": 6.1328125,
+        "mean_decode_iteration_count": 0.0
+      },
+      "latency": {
+        "preset": "production_fast",
+        "decode_mode": "solver_guided",
+        "iterative_threshold": 0.5,
+        "iterative_max_fills_per_round": null,
+        "batch_size": 1,
+        "sample_count": 128,
+        "batch_count": 128,
+        "repeat_count": 3,
+        "mean_total_duration_ms": 207.00930003173804,
+        "min_total_duration_ms": 200.7923000055598,
+        "max_total_duration_ms": 210.47190006356686,
+        "mean_board_duration_ms": 1.6172601564979534,
+        "mean_batch_duration_ms": 1.6172601564979534,
+        "throughput_boards_per_second": 618.6140929697108
+      }
+    },
+    {
+      "preset": "production_pure",
+      "preset_profile": "accuracy_oriented",
+      "preset_summary": "Strict non-solver iterative decoding tuned for accuracy.",
+      "decode_mode": "iterative",
+      "iterative_threshold": 0.75,
+      "iterative_max_fills_per_round": 2,
+      "metrics": {
+        "blank_cell_accuracy": 1.0,
+        "board_solved_rate": 1.0,
+        "valid_board_rate": 1.0,
+        "mean_mismatch_count": 0.0,
+        "mean_row_conflicts": 0.0,
+        "mean_col_conflicts": 0.0,
+        "mean_box_conflicts": 0.0,
+        "mean_total_conflicts": 0.0,
+        "mean_postprocess_change_count": 6.1328125,
+        "mean_decode_iteration_count": 20.0
+      },
+      "latency": {
+        "preset": "production_pure",
+        "decode_mode": "iterative",
+        "iterative_threshold": 0.75,
+        "iterative_max_fills_per_round": 2,
+        "batch_size": 1,
+        "sample_count": 128,
+        "batch_count": 128,
+        "repeat_count": 3,
+        "mean_total_duration_ms": 2972.771566652227,
+        "min_total_duration_ms": 2963.8372000626987,
+        "max_total_duration_ms": 2986.2803999421885,
+        "mean_board_duration_ms": 23.224777864470525,
+        "mean_batch_duration_ms": 23.224777864470525,
+        "throughput_boards_per_second": 43.05792151404662
+      }
+    },
+    {
+      "preset": "research_raw",
+      "preset_profile": "research",
+      "preset_summary": "Raw model output with no repair.",
+      "decode_mode": "argmax",
+      "iterative_threshold": 0.5,
+      "iterative_max_fills_per_round": null,
+      "metrics": {
+        "blank_cell_accuracy": 0.8466796875,
+        "board_solved_rate": 0.0,
+        "valid_board_rate": 0.0,
+        "mean_mismatch_count": 6.1328125,
+        "mean_row_conflicts": 4.15625,
+        "mean_col_conflicts": 4.1796875,
+        "mean_box_conflicts": 3.328125,
+        "mean_total_conflicts": 11.6640625,
+        "mean_postprocess_change_count": 0.0,
+        "mean_decode_iteration_count": 0.0
+      },
+      "latency": {
+        "preset": "research_raw",
+        "decode_mode": "argmax",
+        "iterative_threshold": 0.5,
+        "iterative_max_fills_per_round": null,
+        "batch_size": 1,
+        "sample_count": 128,
+        "batch_count": 128,
+        "repeat_count": 3,
+        "mean_total_duration_ms": 137.76906675775535,
+        "min_total_duration_ms": 131.47040006879251,
+        "max_total_duration_ms": 141.25130015600007,
+        "mean_board_duration_ms": 1.0763208340449637,
+        "mean_batch_duration_ms": 1.0763208340449637,
+        "throughput_boards_per_second": 930.0891657892766
+      }
+    }
+  ],
+  "baseline": null,
+  "gates": [
+    {
+      "name": "production_fast_min_solved_rate",
+      "observed": 1.0,
+      "threshold": 0.95,
+      "comparator": ">=",
+      "passed": true
+    },
+    {
+      "name": "production_pure_min_solved_rate",
+      "observed": 1.0,
+      "threshold": 0.9,
+      "comparator": ">=",
+      "passed": true
+    },
+    {
+      "name": "research_raw_min_blank_cell_accuracy",
+      "observed": 0.8466796875,
+      "threshold": 0.0,
+      "comparator": ">=",
+      "passed": true
+    },
+    {
+      "name": "production_fast_max_board_ms",
+      "observed": 1.6172601564979534,
+      "threshold": 5.0,
+      "comparator": "<=",
+      "passed": true
+    },
+    {
+      "name": "production_pure_max_board_ms",
+      "observed": 23.224777864470525,
+      "threshold": 50.0,
+      "comparator": "<=",
+      "passed": true
+    }
+  ],
+  "passed": true
+}

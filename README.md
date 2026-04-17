@@ -267,6 +267,34 @@ python -m ai.benchmark --checkpoint ai\checkpoints\transformer_large_current.bes
 
 `ai.benchmark` reports mean total time, mean per-board time, mean per-batch time, and throughput for each decode preset / batch-size pair.
 
+Run the standard release check workflow against both production presets:
+
+```powershell
+python -m ai.release_check --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --report ai\reports\release_check.json
+```
+
+Use `--baseline-report ai\reports\release_check.json` together with regression thresholds such as `--max-production-fast-solved-rate-drop` or `--max-production-fast-board-ms-increase` when you want to block regressions against a saved prior run.
+
+Current recommended smoke-gate baseline:
+
+- Baseline report: `ai\reports\release_check_generalization_baseline.json`
+- Baseline command:
+
+```powershell
+python -m ai.release_check --checkpoint ai\checkpoints\transformer_large_current.best.pt --dataset data\manifests_generalization\test.jsonl --batch-size 1 --benchmark-max-samples 128 --benchmark-warmup-batches 1 --benchmark-repeats 3 --report ai\reports\release_check_generalization_baseline.json
+```
+
+- Recommended gate thresholds for future comparison runs:
+  - `--min-production-fast-solved-rate 0.999`
+  - `--min-production-pure-solved-rate 0.99`
+  - `--min-research-raw-blank-cell-accuracy 0.84`
+  - `--max-production-fast-board-ms 3.0`
+  - `--max-production-pure-board-ms 30.0`
+  - `--max-production-fast-solved-rate-drop 0.001`
+  - `--max-production-pure-solved-rate-drop 0.01`
+  - `--max-production-fast-board-ms-increase 1.0`
+  - `--max-production-pure-board-ms-increase 6.0`
+
 ## Learning path
 
 A good order for this repo is:
