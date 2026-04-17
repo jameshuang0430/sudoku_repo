@@ -1,0 +1,67 @@
+name: Release Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  release-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install matplotlib
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Train smoke checkpoint
+        run: >
+          python -m ai.train
+          --epochs 1
+          --train-size 64
+          --val-size 16
+          --batch-size 16
+          --blanks 40
+          --checkpoint ai/checkpoints/ci_smoke.pt
+          --best-checkpoint ai/checkpoints/ci_smoke.best.pt
+          --metrics-output ai/reports/ci_smoke_metrics.json
+
+      - name: Run release check
+        run: >
+          python -m ai.release_check
+          --checkpoint ai/checkpoints/ci_smoke.best.pt
+          --dataset-size 16
+          --batch-size 8
+          --benchmark-max-samples 16
+          --benchmark-warmup-batches 0
+          --benchmark-repeats 1
+          --skip-tests
+          --min-production-fast-solved-rate 0.0
+          --min-production-pure-solved-rate 0.0
+          --min-research-raw-blank-cell-accuracy 0.0
+          --max-production-fast-board-ms 500.0
+          --max-production-pure-board-ms 500.0
+          --report ai/reports/ci_release_check.json
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-check-artifacts
+          path: |
+            ai/reports/ci_smoke_metrics.json
+            ai/reports/ci_release_check.json
