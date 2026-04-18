@@ -324,6 +324,7 @@ python -m ai.release_gate --profile full
 - GitHub Actions:
   - `.github/workflows/release-check.yml` automates a smoke CI gate on every PR and `main` push using an ephemeral CI checkpoint.
   - The documented `full` gate is still a manual / pre-release workflow, because the production checkpoint is not tracked in git.
+  - Branch protection on `main` currently expects the `Smoke Gate` job context from that workflow.
 
 - Recommended full-gate thresholds:
   - `--min-production-fast-solved-rate 0.999`
